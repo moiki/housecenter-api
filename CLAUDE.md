@@ -139,6 +139,9 @@ A patient can have both types. Treatments are typed accordingly.
   `List<T>.AsQueryable()` doesn't work — use `UseInMemoryDatabase` instead.
 - **MediatR cast in ValidationBehavior**: `(TResponse)(Result)error` — double cast needed because
   compiler can't verify `Result → TResponse` at compile time, even with `where TResponse : Result`.
+- **DbContext is not thread-safe**: `Task.WhenAll` over multiple hot queries on one scoped
+  context races and throws "a second operation was started on this context instance".
+  Await queries sequentially; true parallelism needs one context per query (`IDbContextFactory`).
 
 ---
 

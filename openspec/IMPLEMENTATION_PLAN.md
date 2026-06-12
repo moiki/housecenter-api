@@ -114,7 +114,8 @@ GET    /reports/sessions?from=&to=
 - Read-only CQRS (Query handlers only, all `AsNoTracking`)
 - Role-based projection (same query, different DTO shape per role)
 - EF grouping queries (`GroupBy` + aggregate functions in LINQ)
-- `Task.WhenAll` for parallel aggregation (extend the pattern from Phase 4)
+- Sequential aggregate queries on one scoped `DbContext` (EF contexts are not
+  thread-safe — the Phase 4 `Task.WhenAll` pattern was a latent bug, fixed)
 
 **See:** `openspec/changes/sponsor-reports/tasks.md`
 
