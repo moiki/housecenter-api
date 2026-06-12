@@ -25,7 +25,8 @@
 - Returns 201 + message response
 
 ### R4 — Update status
-- Only the assigned doctor can mark a consultation as `Resolved`
+- The assigned doctor, an Administrator, or the Owner can mark a consultation as `Resolved`
+  (matches the access control table in R5)
 - `ResolvedAt` is set to `UtcNow` automatically
 - Returns 200 + updated consultation
 

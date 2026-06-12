@@ -12,7 +12,9 @@
 - [ ] Create `ConsultationMessage : BaseEntity`
 - [ ] Create `MedicalConsultationConfiguration`
   - many-to-one: PatientId, OpenedByUserId, AssignedDoctorId, TreatmentId?
-  - cascade delete messages when consultation deleted
+  - deletion follows the project's global soft-delete convention (`IsActive` on the
+    consultation hides the thread; messages are only reachable through the root).
+    FK `ConsultationId` keeps `OnDelete(Cascade)` solely as DB-level safety for hard deletes.
   - enums as string
 - [ ] Create `ConsultationMessageConfiguration`
 - [ ] Add `DbSet<MedicalConsultation>`, `DbSet<ConsultationMessage>` to DbContext

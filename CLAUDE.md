@@ -21,18 +21,18 @@ C#/.NET 10, applying concepts progressively. Every decision has a WHY.
 hoh-project-net/
 ├── ts-hoh-backend/         ← original TypeScript API (reference only, do not modify)
 ├── house-mui-v1/           ← React/MUI frontend (out of scope)
-├── HouseCenter/            ← .NET solution (active work)
-│   ├── HouseCenter.slnx
-│   ├── HouseCenter.Api/        ← main API project
-│   └── HouseCenter.Api.Tests/  ← integration + unit tests
-├── CLAUDE.md               ← this file
-├── MIGRATION_PLAN.md       ← full phase tracker (Phase 1–5 complete)
-├── PHASE2-AUTH-REVIEW.md   ← auth concepts review document
-└── openspec/               ← SDD artifacts for upcoming changes
-    └── changes/
-        ├── attention-sessions/
-        ├── medical-consultations/
-        └── sponsor-reports/
+└── HouseCenter/            ← .NET solution (active work, git root)
+    ├── HouseCenter.slnx
+    ├── HouseCenter.Api/        ← main API project
+    ├── HouseCenter.Api.Tests/  ← integration + unit tests
+    ├── CLAUDE.md               ← this file
+    ├── MIGRATION_PLAN.md       ← full phase tracker (Phase 1–5 complete)
+    ├── PHASE2-AUTH-REVIEW.md   ← auth concepts review document
+    └── openspec/               ← SDD artifacts for upcoming changes
+        └── changes/
+            ├── attention-sessions/
+            ├── medical-consultations/
+            └── sponsor-reports/
 ```
 
 ---
