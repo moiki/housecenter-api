@@ -1,0 +1,45 @@
+using HouseCenter.Api.Common.Results;
+using HouseCenter.Api.Common.Validation;
+using HouseCenter.Api.Domain.Constants;
+
+namespace HouseCenter.Api.Features.Collaborators;
+
+public static class CollaboratorEndpoints
+{
+    public static IEndpointRouteBuilder MapCollaboratorEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/collaborators").WithTags("Collaborators").RequireAuthorization();
+
+        group.MapGet("/", async (ICollaboratorService service, CancellationToken ct) =>
+                (await service.ListAsync(ct)).ToHttpResult())
+            .WithName("ListCollaborators");
+
+        group.MapGet("/{id:guid}", async (Guid id, ICollaboratorService service, CancellationToken ct) =>
+                (await service.GetByIdAsync(id, ct)).ToHttpResult())
+            .WithName("GetCollaborator");
+
+        group.MapPost("/", async (CreateCollaboratorRequest request, ICollaboratorService service, CancellationToken ct) =>
+            {
+                var result = await service.CreateAsync(request, ct);
+                return result.Match(
+                    created => Results.Created($"/collaborators/{created.Id}", created),
+                    error => error.ToProblem());
+            })
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithValidation<CreateCollaboratorRequest>()
+            .WithName("CreateCollaborator");
+
+        group.MapPut("/{id:guid}", async (Guid id, UpdateCollaboratorRequest request, ICollaboratorService service, CancellationToken ct) =>
+                (await service.UpdateAsync(id, request, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithValidation<UpdateCollaboratorRequest>()
+            .WithName("UpdateCollaborator");
+
+        group.MapDelete("/{id:guid}", async (Guid id, ICollaboratorService service, CancellationToken ct) =>
+                (await service.DeactivateAsync(id, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithName("DeactivateCollaborator");
+
+        return app;
+    }
+}

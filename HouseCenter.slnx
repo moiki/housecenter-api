@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="HouseCenter.Api.Tests/HouseCenter.Api.Tests.csproj" />
+  <Project Path="HouseCenter.Api/HouseCenter.Api.csproj" />
+</Solution>
