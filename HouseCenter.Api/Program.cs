@@ -11,6 +11,7 @@ using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Features.Auth;
 using HouseCenter.Api.Features.Clinics;
 using HouseCenter.Api.Features.Collaborators;
+using HouseCenter.Api.Features.Consultations;
 using HouseCenter.Api.Features.Invitations;
 using HouseCenter.Api.Features.Patients;
 using HouseCenter.Api.Features.Patients.Sessions;
@@ -192,6 +193,7 @@ try
     app.MapCollaboratorEndpoints();
     app.MapPatientEndpoints();
     app.MapSessionEndpoints();
+    app.MapConsultationEndpoints();
 
     app.Run();
 }

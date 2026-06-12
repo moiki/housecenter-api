@@ -7,19 +7,19 @@
 
 ### T1 — Domain: ConsultationStatus enum + entities
 
-- [ ] Add `ConsultationStatus` enum (Open, UnderReview, Resolved)
-- [ ] Create `MedicalConsultation : BaseEntity`
-- [ ] Create `ConsultationMessage : BaseEntity`
-- [ ] Create `MedicalConsultationConfiguration`
+- [x] Add `ConsultationStatus` enum (Open, UnderReview, Resolved)
+- [x] Create `MedicalConsultation : BaseEntity`
+- [x] Create `ConsultationMessage : BaseEntity`
+- [x] Create `MedicalConsultationConfiguration`
   - many-to-one: PatientId, OpenedByUserId, AssignedDoctorId, TreatmentId?
   - deletion follows the project's global soft-delete convention (`IsActive` on the
     consultation hides the thread; messages are only reachable through the root).
     FK `ConsultationId` keeps `OnDelete(Cascade)` solely as DB-level safety for hard deletes.
   - enums as string
-- [ ] Create `ConsultationMessageConfiguration`
-- [ ] Add `DbSet<MedicalConsultation>`, `DbSet<ConsultationMessage>` to DbContext
-- [ ] Migration: `AddMedicalConsultations`
-- [ ] `dotnet ef database update`
+- [x] Create `ConsultationMessageConfiguration`
+- [x] Add `DbSet<MedicalConsultation>`, `DbSet<ConsultationMessage>` to DbContext
+- [x] Migration: `AddMedicalConsultations`
+- [x] `dotnet ef database update`
 
 ---
 
@@ -27,32 +27,34 @@
 
 Create under `Features/Consultations/`:
 
-- [ ] `OpenConsultation.cs` — validates doctor is in patient's AssignedDoctors, creates consultation + first message
-- [ ] `ListConsultations.cs` — role-filtered query (Doctor sees own, Member sees own, Admin/Owner sees all)
-- [ ] `GetConsultationDetail.cs` — single consultation with messages
-- [ ] `PostConsultationMessage.cs` — appends message, auto-transitions to UnderReview if author is the doctor
-- [ ] `UpdateConsultationStatus.cs` — resolve only (doctor or admin)
+- [x] `OpenConsultation.cs` — validates doctor is in patient's AssignedDoctors, creates consultation + first message
+- [x] `ListConsultations.cs` — role-filtered query (Doctor sees own, Member sees own, Admin/Owner sees all)
+- [x] `GetConsultationDetail.cs` — single consultation with messages
+- [x] `PostConsultationMessage.cs` — appends message, auto-transitions to UnderReview if author is the doctor
+- [x] `UpdateConsultationStatus.cs` — resolve only (doctor or admin)
 
 ---
 
 ### T3 — Endpoints + validators
 
-- [ ] `ConsultationEndpoints.cs` with all 5 routes
-- [ ] `ConsultationValidators.cs` — Title (max 300), Body (max 5000), AttachmentUrl (max 500, valid URL if provided)
-- [ ] Register service + endpoints in `Program.cs`
-- [ ] `ConsultationDtos.cs`
+- [x] `ConsultationEndpoints.cs` with all 5 routes
+- [x] `ConsultationValidators.cs` — Title (max 300), Body (max 5000), AttachmentUrl (max 500, valid URL if provided)
+- [x] Register service + endpoints in `Program.cs`
+- [x] `ConsultationDtos.cs`
 
 ---
 
 ### T4 — Integration tests
 
-- [ ] `ConsultationFlowTests.cs`:
+- [x] `ConsultationFlowTests.cs`:
   - `OpenConsultation_WithAssignedDoctor_Returns201`
-  - `OpenConsultation_WithUnassignedDoctor_Returns422`
+  - `OpenConsultation_WithUnassignedDoctor_Returns400` (Error.Validation → 400, project convention)
   - `PostMessage_ByDoctor_TransitionsToUnderReview`
   - `ResolveConsultation_ByDoctor_SetsResolvedAt`
   - `ListConsultations_AsDoctor_SeesOnlyAssignedOnes`
   - `GetConsultations_AsSponsor_Returns403`
+  - `OpenConsultation_AsMemberNotCollaborator_Returns403` (R5: members only open for own patients)
+  - `PostMessage_OnResolvedConsultation_Returns409` (R3: resolved threads are closed)
 
 ---
 
