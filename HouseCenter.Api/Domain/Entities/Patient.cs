@@ -18,6 +18,7 @@ public class Patient : BaseEntity
     public string? City { get; set; }
     public string? Description { get; set; }
     public string Address { get; set; } = string.Empty;
+    public AttentionType PrimaryAttentionType { get; set; } = AttentionType.Medical;
 
     public Guid? ClinicId { get; set; }
     public Clinic? Clinic { get; set; }
@@ -26,6 +27,7 @@ public class Patient : BaseEntity
     public WorkRoute? WorkRoute { get; set; }
 
     public ICollection<User> Collaborators { get; set; } = [];
+    public ICollection<User> AssignedDoctors { get; set; } = [];
     public ICollection<Treatment> Treatments { get; set; } = [];
     public ICollection<PatientComment> Comments { get; set; } = [];
 }

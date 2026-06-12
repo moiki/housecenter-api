@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Common.Validation;
+using HouseCenter.Api.Domain.Constants;
 
 namespace HouseCenter.Api.Features.Patients;
 
@@ -59,6 +60,19 @@ public static class PatientEndpoints
                 Guid id, Guid userId, IPatientService service, CancellationToken ct) =>
                 (await service.AddCollaboratorAsync(id, userId, ct)).ToHttpResult())
             .WithName("AddPatientCollaborator");
+
+        // attention-sessions R7 — doctor assignment, Owner only
+        group.MapPost("/{id:guid}/doctors/{userId:guid}", async (
+                Guid id, Guid userId, IPatientService service, CancellationToken ct) =>
+                (await service.AddPatientDoctorAsync(id, userId, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.OwnerOnly)
+            .WithName("AddPatientDoctor");
+
+        group.MapDelete("/{id:guid}/doctors/{userId:guid}", async (
+                Guid id, Guid userId, IPatientService service, CancellationToken ct) =>
+                (await service.RemovePatientDoctorAsync(id, userId, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.OwnerOnly)
+            .WithName("RemovePatientDoctor");
     }
 
     // ─── 4.4 + 4.5 Treatments ────────────────────────────────────────────────

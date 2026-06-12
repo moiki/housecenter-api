@@ -4,7 +4,7 @@
 `attention-sessions`
 
 ## Status
-`proposed`
+`implemented` (2026-06-12 — all tasks T1–T6 complete, 49/49 tests green)
 
 ## Problem
 

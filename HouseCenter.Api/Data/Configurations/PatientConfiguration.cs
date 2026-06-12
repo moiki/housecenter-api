@@ -21,6 +21,14 @@ public class PatientConfiguration : IEntityTypeConfiguration<Patient>
             .HasConversion<string>()
             .HasMaxLength(10);
 
+        // HasDefaultValue does double duty: backfills existing rows with 'Medical'
+        // when the migration adds the column, and keeps a DB-level default in sync
+        // with the CLR default (spec R5).
+        builder.Property(p => p.PrimaryAttentionType)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .HasDefaultValue(AttentionType.Medical);
+
         builder.HasOne(p => p.Clinic)
             .WithMany(c => c.Patients)
             .HasForeignKey(p => p.ClinicId)
@@ -35,5 +43,15 @@ public class PatientConfiguration : IEntityTypeConfiguration<Patient>
         builder.HasMany(p => p.Collaborators)
             .WithMany()
             .UsingEntity(j => j.ToTable("patient_collaborators"));
+
+        // Many-to-many: Patient <-> User (remote doctors following this patient).
+        // Explicit FK column names — EF would otherwise generate "Patient1Id" to
+        // disambiguate from the Collaborators relationship above.
+        builder.HasMany(p => p.AssignedDoctors)
+            .WithMany()
+            .UsingEntity<Dictionary<string, object>>(
+                "patient_doctors",
+                j => j.HasOne<User>().WithMany().HasForeignKey("DoctorId"),
+                j => j.HasOne<Patient>().WithMany().HasForeignKey("PatientId"));
     }
 }

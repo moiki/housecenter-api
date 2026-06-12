@@ -17,6 +17,11 @@ public class TreatmentConfiguration : IEntityTypeConfiguration<Treatment>
             .HasConversion<string>()
             .HasMaxLength(20);
 
+        builder.Property(t => t.Type)
+            .HasConversion<string>()
+            .HasMaxLength(30)
+            .HasDefaultValue(AttentionType.Medical);
+
         builder.HasOne(t => t.Patient)
             .WithMany(p => p.Treatments)
             .HasForeignKey(t => t.PatientId)

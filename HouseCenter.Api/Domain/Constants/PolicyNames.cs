@@ -7,4 +7,10 @@ public static class PolicyNames
 
     /// <summary>Administrator or Owner — day-to-day management.</summary>
     public const string AdministratorOrAbove = "AdministratorOrAbove";
+
+    /// <summary>Member, Administrator, or Owner — field operations.</summary>
+    public const string MemberOrAbove = "MemberOrAbove";
+
+    /// <summary>Every role except Sponsor — sponsors only see aggregate /reports.</summary>
+    public const string StaffOnly = "StaffOnly";
 }

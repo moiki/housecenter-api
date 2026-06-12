@@ -15,6 +15,7 @@ public class Treatment : BaseEntity
     public DateTime StartDate { get; set; }
     public DateTime EndDate { get; set; }
     public TreatmentStatus Status { get; set; } = TreatmentStatus.Active;
+    public AttentionType Type { get; set; } = AttentionType.Medical;
 
     public Guid PatientId { get; set; }
     public Patient Patient { get; set; } = null!;

@@ -15,6 +15,7 @@ public sealed record PatientResponse(
     string? City,
     string Address,
     string? Description,
+    string PrimaryAttentionType,
     Guid? ClinicId,
     Guid? WorkRouteId,
     bool IsActive);
@@ -30,6 +31,7 @@ public sealed record CreatePatientRequest(
     string? City,
     string Address,
     string? Description,
+    AttentionType PrimaryAttentionType,
     Guid? ClinicId,
     Guid? WorkRouteId);
 
@@ -44,6 +46,7 @@ public sealed record UpdatePatientRequest(
     string? City,
     string Address,
     string? Description,
+    AttentionType PrimaryAttentionType,
     Guid? ClinicId,
     Guid? WorkRouteId);
 
@@ -77,23 +80,29 @@ public sealed record TreatmentResponse(
     string Description,
     string? Profile,
     string Status,
+    string Type,
     DateTime StartDate,
     DateTime EndDate,
     bool IsActive);
 
+// Type is nullable on purpose: when omitted, the service defaults it to the
+// patient's PrimaryAttentionType (spec R6).
 public sealed record CreateTreatmentRequest(
     string Name,
     string Description,
     string? Profile,
     DateTime StartDate,
-    DateTime EndDate);
+    DateTime EndDate,
+    AttentionType? Type = null);
 
+// Null Type on update means "leave unchanged".
 public sealed record UpdateTreatmentRequest(
     string Name,
     string Description,
     string? Profile,
     DateTime StartDate,
-    DateTime EndDate);
+    DateTime EndDate,
+    AttentionType? Type = null);
 
 public sealed record UpdateTreatmentStatusRequest(TreatmentStatus Status);
 

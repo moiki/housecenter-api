@@ -18,6 +18,7 @@ public class HouseCenterDbContext(DbContextOptions<HouseCenterDbContext> options
     public DbSet<Treatment> Treatments => Set<Treatment>();
     public DbSet<TreatmentDetail> TreatmentDetails => Set<TreatmentDetail>();
     public DbSet<TreatmentComment> TreatmentComments => Set<TreatmentComment>();
+    public DbSet<AttentionSession> AttentionSessions => Set<AttentionSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

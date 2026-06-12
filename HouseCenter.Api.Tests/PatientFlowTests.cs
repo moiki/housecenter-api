@@ -151,7 +151,8 @@ public sealed class PatientFlowTests(ApiFactory factory)
 
     private static CreatePatientRequest ValidPatientRequest(string firstName, string lastName) =>
         new(firstName, lastName, null, new DateTime(1990, 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            Gender.Male, "Nicaragua", null, "Managua", "Dirección 123", null, null, null);
+            Gender.Male, "Nicaragua", null, "Managua", "Dirección 123", null,
+            AttentionType.Medical, null, null);
 
     private static async Task<PatientResponse> CreatePatientAsync(HttpClient client, string firstName)
     {
