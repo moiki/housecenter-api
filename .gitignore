@@ -1,0 +1,55 @@
+## Build output
+bin/
+obj/
+
+## .NET specific
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Rider / JetBrains
+.idea/
+
+## Visual Studio
+.vs/
+*.rsuser
+
+## VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+## User secrets (never commit)
+**/secrets.json
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
+
+## Logs
+logs/
+*.log
+Serilog/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Test results
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+## Migrations backup (optional — remove if you want to track these)
+# **/Migrations/
+
+## Docker
+docker-compose.override.yml
