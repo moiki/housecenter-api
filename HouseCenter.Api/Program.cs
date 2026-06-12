@@ -15,6 +15,7 @@ using HouseCenter.Api.Features.Consultations;
 using HouseCenter.Api.Features.Invitations;
 using HouseCenter.Api.Features.Patients;
 using HouseCenter.Api.Features.Patients.Sessions;
+using HouseCenter.Api.Features.Reports;
 using HouseCenter.Api.Features.Roles;
 using HouseCenter.Api.Features.Users;
 using HouseCenter.Api.Features.WorkRoutes;
@@ -194,6 +195,7 @@ try
     app.MapPatientEndpoints();
     app.MapSessionEndpoints();
     app.MapConsultationEndpoints();
+    app.MapReportEndpoints();
 
     app.Run();
 }

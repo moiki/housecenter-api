@@ -49,7 +49,9 @@ hoh-project-net/
 | 4 | Patient domain — Patients, Treatments, Comments, pagination, global soft-delete filter | ✅ |
 | 5 | Polish — PerformanceBehavior, CorrelationId, health checks, API versioning, unit tests | ✅ |
 
-**Next work:** Domain V2 — three SDD changes (see `openspec/changes/`).
+**Domain V2 complete (2026-06-12).** All three SDD changes implemented — see `openspec/changes/`.
+**Next work:** see "What comes after Domain V2" in `openspec/IMPLEMENTATION_PLAN.md`
+(notifications, file uploads, anonymization, frontend integration).
 
 ---
 
@@ -119,9 +121,9 @@ A patient can have both types. Treatments are typed accordingly.
 | WorkRoutes | Service | Owned JSON destinations need wholesale replace semantics |
 | Collaborators | Service | Positions (real entities) clear+add via tracked collection |
 | Patients | Service | Large domain — multiple sub-resources in one service |
-| AttentionSessions | **CQRS** (planned) | New, clean slate — CQRS by default |
-| MedicalConsultations | **CQRS** (planned) | New, clean slate |
-| Reports | **CQRS** (planned) | Read-heavy queries, no mutation logic |
+| AttentionSessions | **CQRS** | New, clean slate — CQRS by default |
+| MedicalConsultations | **CQRS** | New, clean slate |
+| Reports | **CQRS** | Read-only query handlers, role-based projection |
 
 ---
 
@@ -194,10 +196,10 @@ Test DB: `housecenter_test` (recreated on each test run).
 
 ## SDD changes (Domain V2)
 
-Three changes are planned. See `openspec/changes/` for full specs.
+All three changes implemented (2026-06-12). See `openspec/changes/` for full specs.
 
-| Change | Priority | Summary |
-|---|---|---|
-| `attention-sessions` | P1 | Record actual care events (who attended, when, where) |
-| `medical-consultations` | P2 | Structured thread between collaborator and assigned doctor |
-| `sponsor-reports` | P3 | Aggregate endpoints with role-based projection |
+| Change | Priority | Status | Summary |
+|---|---|---|---|
+| `attention-sessions` | P1 | ✅ | Record actual care events (who attended, when, where) |
+| `medical-consultations` | P2 | ✅ | Structured thread between collaborator and assigned doctor |
+| `sponsor-reports` | P3 | ✅ | Aggregate endpoints with role-based projection |

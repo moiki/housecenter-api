@@ -13,19 +13,22 @@
 - `GET /reports/clinics/{id}` returns aggregates for one clinic:
   patients attending, collaborators assigned, sessions count this month, active treatments
 - Role-based projection:
-  - Sponsor → anonymized (counts only, no collaborator or patient names)
-  - Doctor / Member → only for their own clinic; otherwise 403
   - Administrator / Owner → full detail including collaborator names
+  - Everyone else (Sponsor, Doctor, Member) → anonymized: counts only,
+    `collaboratorNames` is null
+  - Note: "own clinic only" was dropped — `User` accounts are not linked to
+    clinics in the domain model (`Collaborator` is a separate directory entity),
+    so per-clinic membership cannot be enforced
 - Unknown clinic id → 404
 
 ### R3 — Work route report
 - `GET /reports/work-routes/{id}` returns: destinations count, collaborators on route,
   sessions in last 30 days, distinct patients visited
 - Role-based access:
-  - Sponsor → anonymized
   - Doctor → 403 (doctors are not tied to routes)
-  - Member → only their own route; otherwise 403
-  - Administrator / Owner → full detail
+  - Administrator / Owner → full detail including collaborator names
+  - Sponsor / Member → anonymized (counts only, names null; same reason as R2)
+- Sessions count and patients-visited both use a last-30-days window
 - Unknown route id → 404
 
 ### R4 — Session period report
@@ -43,14 +46,16 @@
 | Endpoint | Sponsor | Doctor | Member | Admin/Owner |
 |---|---|---|---|---|
 | `/reports/summary` | ✅ | ✅ | ✅ | ✅ |
-| `/reports/clinics/{id}` | ✅ (anonymized) | ✅ (their clinic only) | ✅ (their clinic only) | ✅ |
-| `/reports/work-routes/{id}` | ✅ (anonymized) | ✗ | ✅ (their route only) | ✅ |
+| `/reports/clinics/{id}` | ✅ (anonymized) | ✅ (anonymized) | ✅ (anonymized) | ✅ |
+| `/reports/work-routes/{id}` | ✅ (anonymized) | ✗ | ✅ (anonymized) | ✅ |
 | `/reports/sessions` | ✅ (no names) | ✅ (assigned patients) | ✅ (own sessions) | ✅ |
 
 ### R6 — Read-only guarantee
 - The Reports module contains Query handlers only — no commands, no mutations
 - Every EF query uses `AsNoTracking()`
-- Independent aggregates within one handler may run via `Task.WhenAll`
+- Aggregates inside a handler run sequentially on the scoped `DbContext` —
+  EF contexts are not thread-safe, so `Task.WhenAll` over one context is a
+  concurrency bug; true parallelism would require `IDbContextFactory`
 
 ## Scenarios
 

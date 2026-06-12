@@ -4,7 +4,7 @@
 `sponsor-reports`
 
 ## Status
-`proposed`
+`implemented` (2026-06-12 — all tasks T1–T4 complete, 67/67 tests green)
 
 ## Problem
 
