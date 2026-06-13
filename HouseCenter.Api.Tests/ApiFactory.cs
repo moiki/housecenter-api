@@ -69,6 +69,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["App:FrontendUrl"] = "http://localhost:3000",
                 // The reminder scanner is driven directly in tests; keep the timed service off
                 ["SessionReminders:Enabled"] = "false",
+                // Attachments: store under a temp dir; small cap so the oversize test is cheap
+                ["FileStorage:LocalRootPath"] = Path.Combine(Path.GetTempPath(), "housecenter-test-attachments"),
+                ["FileStorage:MaxFileSizeBytes"] = "65536",
                 // Surface the JwtBearer rejection reason in test output
                 ["Serilog:MinimumLevel:Override:Microsoft.AspNetCore.Authentication"] = "Debug"
             });

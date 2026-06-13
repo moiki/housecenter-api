@@ -224,6 +224,59 @@ namespace HouseCenter.Api.Migrations
                     b.ToTable("ConsultationMessages");
                 });
 
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.FileAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OwnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OwnerType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UploadedByUserId");
+
+                    b.HasIndex("OwnerType", "OwnerId");
+
+                    b.ToTable("FileAttachments");
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Invitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -950,6 +1003,17 @@ namespace HouseCenter.Api.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Consultation");
+                });
+
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.FileAttachment", b =>
+                {
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("UploadedBy");
                 });
 
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.MedicalConsultation", b =>
