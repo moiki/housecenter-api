@@ -8,43 +8,43 @@ their tasks expanded when their PR starts.
 ## Phase 1 — Foundation + in-app notifications
 
 ### T1 — Domain: Notification entity + enum + config + migration
-- [ ] Add `NotificationType` enum (`ConsultationMessage`, `ConsultationOpened`, `ConsultationResolved`)
-- [ ] Create `Notification : BaseEntity` (RecipientUserId, Type, Title, Body, ReferenceType?, ReferenceId?, IsRead, ReadAt?)
-- [ ] Create `NotificationConfiguration` — enum as string, Restrict on RecipientUserId FK, index on (RecipientUserId, IsRead)
-- [ ] Add `DbSet<Notification>` to `HouseCenterDbContext`
-- [ ] Migration `AddNotifications` + `dotnet ef database update`
+- [x] Add `NotificationType` enum (`ConsultationMessage`, `ConsultationOpened`, `ConsultationResolved`)
+- [x] Create `Notification : BaseEntity` (RecipientUserId, Type, Title, Body, ReferenceType?, ReferenceId?, IsRead, ReadAt?)
+- [x] Create `NotificationConfiguration` — enum as string, Restrict on RecipientUserId FK, index on (RecipientUserId, IsRead)
+- [x] Add `DbSet<Notification>` to `HouseCenterDbContext`
+- [x] Migration `AddNotifications` + `dotnet ef database update`
 
 **Acceptance:** migration applies, build clean.
 
 ### T2 — Domain events
-- [ ] Create `Features/Notifications/Events/ConsultationEvents.cs`:
+- [x] Create `Features/Notifications/Events/ConsultationEvents.cs`:
   `ConsultationMessagePostedEvent`, `ConsultationOpenedEvent`, `ConsultationResolvedEvent` (all `: INotification`)
 
 ### T3 — Publish events from consultation handlers
-- [ ] Inject `IPublisher` into `OpenConsultationHandler`, `PostConsultationMessageHandler`,
+- [x] Inject `IPublisher` into `OpenConsultationHandler`, `PostConsultationMessageHandler`,
   `UpdateConsultationStatusHandler`
-- [ ] Publish the matching event **after** `SaveChangesAsync` succeeds
-- [ ] Capture the data the event needs before returning (ids, title)
+- [x] Publish the matching event **after** `SaveChangesAsync` succeeds
+- [x] Capture the data the event needs before returning (ids, title)
 
 **Acceptance:** existing consultation tests still green.
 
 ### T4 — In-app channel handlers
-- [ ] Create `Features/Notifications/Handlers/InAppNotificationHandlers.cs` with an
+- [x] Create `Features/Notifications/Handlers/InAppNotificationHandlers.cs` with an
   `INotificationHandler<T>` for each event
-- [ ] Resolve recipient(s) per R2; never notify the author
-- [ ] Persist `Notification` rows via scoped `DbContext`
-- [ ] Wrap channel work in try/catch + log (R3 best-effort)
+- [x] Resolve recipient(s) per R2; never notify the author
+- [x] Persist `Notification` rows via scoped `DbContext`
+- [x] Wrap channel work in try/catch + log (R3 best-effort)
 
 ### T5 — Read API
-- [ ] `NotificationDtos.cs` (`NotificationResponse`, `UnreadCountResponse`)
-- [ ] CQRS queries/commands: `ListNotifications`, `GetUnreadCount`, `MarkNotificationRead`, `MarkAllRead`
-- [ ] `NotificationEndpoints.cs` (4 routes, `RequireAuthorization()`, recipient-scoped)
-- [ ] Register `MapNotificationEndpoints()` in `Program.cs`
+- [x] `NotificationDtos.cs` (`NotificationResponse`, `UnreadCountResponse`)
+- [x] CQRS queries/commands: `ListNotifications`, `GetUnreadCount`, `MarkNotificationRead`, `MarkAllRead`
+- [x] `NotificationEndpoints.cs` (4 routes, `RequireAuthorization()`, recipient-scoped)
+- [x] Register `MapNotificationEndpoints()` in `Program.cs`
 
 **Acceptance:** build clean.
 
 ### T6 — Integration tests
-- [ ] `NotificationTests.cs`:
+- [x] `NotificationTests.cs`:
   - `PostMessage_NotifiesOtherParticipant_NotAuthor`
   - `OpenConsultation_NotifiesAssignedDoctor`
   - `ResolveConsultation_NotifiesOpener`
