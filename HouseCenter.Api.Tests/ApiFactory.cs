@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using HouseCenter.Api.Common.Email;
+using HouseCenter.Api.Common.Push;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -26,6 +27,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// can assert delivery. Shared across the collection — filter by recipient address.</summary>
     public RecordingEmailService Emails { get; } = new();
 
+    /// <summary>Captures push sends instead of hitting FCM; supports invalid-token simulation.</summary>
+    public RecordingPushSender Push { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -34,6 +38,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<IEmailService>();
             services.AddSingleton<IEmailService>(Emails);
+            services.RemoveAll<IPushSender>();
+            services.AddSingleton<IPushSender>(Push);
         });
 
         builder.ConfigureAppConfiguration((_, config) =>

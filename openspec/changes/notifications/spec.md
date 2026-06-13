@@ -130,5 +130,9 @@ record ConsultationResolvedEvent(
   `ReminderSentAt` is null, publishes, then set-updates `ReminderSentAt` so each session
   reminds once. Both events notify the session's collaborator and reuse the
   `NotificationCreatedEvent` fan-out (in-app + email automatically).
-- **P4 Push**: `PushSubscription` entity + registration endpoints; a push
-  `INotificationHandler`; provider per the proposal's open question.
+- **P4 Push** (implemented, server-side): provider = **FCM**. `PushSubscription` entity
+  (token per device, caller-scoped upsert) + `POST/DELETE /notifications/push-subscriptions`;
+  `IPushSender` with a `FirebasePushSender` (active only when `Push:CredentialsJson` is set) and
+  a `LoggingPushSender` fallback; `PushNotificationHandler` consumes `NotificationCreatedEvent`,
+  resolves tokens, pushes, and prunes dead tokens. The Firebase project + service-account secret
+  are deferred external setup — the channel is a logging no-op until configured.

@@ -6,6 +6,7 @@ using HouseCenter.Api.Common.Email;
 using Microsoft.Extensions.Logging;
 using HouseCenter.Api.Common.Middleware;
 using HouseCenter.Api.Common.Persistence;
+using HouseCenter.Api.Common.Push;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Features.Auth;
@@ -60,6 +61,17 @@ try
         builder.Configuration.GetSection(SeedOptions.SectionName));
     builder.Services.Configure<SessionReminderOptions>(
         builder.Configuration.GetSection(SessionReminderOptions.SectionName));
+    builder.Services.Configure<PushOptions>(
+        builder.Configuration.GetSection(PushOptions.SectionName));
+
+    // Push sender: real FCM only when credentials are present, else a logging no-op so the
+    // pipeline runs without a Firebase project (same fallback idea as SMTP with no host).
+    var pushConfigured = !string.IsNullOrWhiteSpace(
+        builder.Configuration.GetSection(PushOptions.SectionName)[nameof(PushOptions.CredentialsJson)]);
+    if (pushConfigured)
+        builder.Services.AddSingleton<IPushSender, FirebasePushSender>();
+    else
+        builder.Services.AddSingleton<IPushSender, LoggingPushSender>();
 
     // Database
     var connectionString = builder.Configuration

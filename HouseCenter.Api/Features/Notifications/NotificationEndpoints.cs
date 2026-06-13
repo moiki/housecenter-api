@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
+using HouseCenter.Api.Common.Validation;
 using MediatR;
 
 namespace HouseCenter.Api.Features.Notifications;
@@ -33,6 +34,19 @@ public static class NotificationEndpoints
                 IMediator mediator, CancellationToken ct) =>
                 (await mediator.Send(new MarkAllReadCommand(principal), ct)).ToHttpResult())
             .WithName("MarkAllNotificationsRead");
+
+        // Push device-token registration (one per device install, owned by the caller)
+        group.MapPost("/push-subscriptions", async (RegisterPushSubscriptionRequest request,
+                ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+                (await mediator.Send(new RegisterPushSubscriptionCommand(
+                    request.Token, request.Platform, principal), ct)).ToHttpResult())
+            .WithValidation<RegisterPushSubscriptionRequest>()
+            .WithName("RegisterPushSubscription");
+
+        group.MapDelete("/push-subscriptions/{token}", async (string token,
+                ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+                (await mediator.Send(new RemovePushSubscriptionCommand(token, principal), ct)).ToHttpResult())
+            .WithName("RemovePushSubscription");
 
         return app;
     }

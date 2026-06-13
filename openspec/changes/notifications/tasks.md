@@ -87,8 +87,30 @@ their tasks expanded when their PR starts.
 
 **Acceptance:** full suite green (78/78).
 
-## Phase 4 — Push (tasks expanded when PR starts)
-- Resolve push provider; `PushSubscription` entity + registration endpoints; push handler; tests.
+## Phase 4 — Push (FCM) ✅ (server-side; secret deferred)
+
+Provider: **Firebase Cloud Messaging** (brokers Android + iOS via APNs + web from one API).
+
+- [x] `PushSubscription` entity (OwnerUserId, Token unique, Platform enum) + config + migration
+- [x] `IPushSender` abstraction; `FirebasePushSender` (FirebaseAdmin SDK, `SendEachForMulticastAsync`,
+  reports Unregistered/InvalidArgument tokens for pruning); `LoggingPushSender` fallback
+- [x] `PushOptions` (`Push:CredentialsJson`); Program.cs wires FCM only when credentials are
+  present, else the logging no-op (pipeline runs without a Firebase project)
+- [x] Registration endpoints: `POST/DELETE /notifications/push-subscriptions` (upsert on token,
+  caller-scoped) + validator
+- [x] `PushNotificationHandler : INotificationHandler<NotificationCreatedEvent>` — resolves the
+  recipient's tokens, pushes, prunes dead tokens (`ExecuteDelete`); ReferenceType/Id in the data
+  payload for deep-linking; best-effort
+- [x] Test double `RecordingPushSender` (with invalid-token simulation) in `ApiFactory`; 4 tests
+  (register/remove 204, push to registered token, dead-token pruning)
+
+**Acceptance:** full suite green (82/82).
+
+**Deferred (needs external setup, not code):**
+- [ ] Create the Firebase project + upload the iOS APNs Auth Key (.p8) to it
+- [ ] Set `Push:CredentialsJson` (service-account JSON) via User Secrets — then `FirebasePushSender`
+  activates automatically; no code change
+- [ ] Mobile (React Native) side: register the device token against `POST /notifications/push-subscriptions`
 
 ---
 

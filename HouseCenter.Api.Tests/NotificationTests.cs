@@ -195,6 +195,73 @@ public sealed class NotificationTests(ApiFactory factory)
         }
     }
 
+    // ─── Push channel (Phase 4) ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task RegisterPushSubscription_Returns204()
+    {
+        var (memberClient, _) = await LoginUserWithRoleAsync(RoleNames.Member);
+
+        var response = await memberClient.PostAsJsonAsync("/notifications/push-subscriptions",
+            new RegisterPushSubscriptionRequest($"tok-{Guid.NewGuid():N}", PushPlatform.Android));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task RemovePushSubscription_Returns204()
+    {
+        var (memberClient, _) = await LoginUserWithRoleAsync(RoleNames.Member);
+        var token = $"tok-{Guid.NewGuid():N}";
+        await memberClient.PostAsJsonAsync("/notifications/push-subscriptions",
+            new RegisterPushSubscriptionRequest(token, PushPlatform.Android));
+
+        var response = await memberClient.DeleteAsync($"/notifications/push-subscriptions/{token}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task OpenConsultation_PushesToRegisteredDoctorToken()
+    {
+        var owner = await OwnerClient();
+        var patient = await CreatePatientAsync(owner);
+        var (doctorClient, doctorId) = await LoginUserWithRoleAsync(RoleNames.Doctor);
+        var token = $"tok-{Guid.NewGuid():N}";
+        await RegisterPushAsync(doctorClient, token);
+        await AssignDoctorAsync(owner, patient.Id, doctorId);
+
+        await OpenConsultationAsync(owner, patient.Id, doctorId);
+
+        factory.Push.Sent.Should().Contain(p => p.Token == token);
+    }
+
+    [Fact]
+    public async Task Push_InvalidToken_IsPruned()
+    {
+        var owner = await OwnerClient();
+        var patient = await CreatePatientAsync(owner);
+        var (doctorClient, doctorId) = await LoginUserWithRoleAsync(RoleNames.Doctor);
+        var token = $"tok-{Guid.NewGuid():N}";
+        await RegisterPushAsync(doctorClient, token);
+        await AssignDoctorAsync(owner, patient.Id, doctorId);
+
+        factory.Push.InvalidTokens.Add(token);
+        try
+        {
+            await OpenConsultationAsync(owner, patient.Id, doctorId);
+
+            // The handler should have deleted the dead token.
+            using var scope = factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+            (await db.PushSubscriptions.AnyAsync(s => s.Token == token)).Should().BeFalse();
+        }
+        finally
+        {
+            factory.Push.InvalidTokens.Remove(token);
+        }
+    }
+
     // ─── Session reminders (Phase 3) ──────────────────────────────────────────
 
     [Fact]
@@ -240,6 +307,13 @@ public sealed class NotificationTests(ApiFactory factory)
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    private static async Task RegisterPushAsync(HttpClient client, string token)
+    {
+        var response = await client.PostAsJsonAsync("/notifications/push-subscriptions",
+            new RegisterPushSubscriptionRequest(token, PushPlatform.Android));
+        response.EnsureSuccessStatusCode();
+    }
 
     private async Task RunScannerAsync()
     {
