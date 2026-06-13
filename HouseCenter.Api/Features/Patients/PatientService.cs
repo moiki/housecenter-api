@@ -157,11 +157,14 @@ public sealed class PatientService(
         return Result.Success();
     }
 
-    // Task.WhenAll — launches 2 independent DB queries concurrently, awaits both.
-    // The patient query is the "gate": if not found, we short-circuit before awaiting the rest.
+    // Sequential awaits on purpose: a DbContext allows only ONE in-flight operation —
+    // Task.WhenAll over hot queries on the same scoped context races and throws
+    // "A second operation was started on this context instance". True parallelism would
+    // need a separate context per query (IDbContextFactory). The patient query gates the
+    // rest: not-found skips the other two round trips.
     public async Task<Result<PatientFullSummaryResponse>> GetFullSummaryAsync(Guid id, CancellationToken ct)
     {
-        var patientTask = db.Patients
+        var patient = await db.Patients
             .AsNoTracking()
             .Where(p => p.Id == id)
             .Select(p => new PatientResponse(
@@ -169,8 +172,9 @@ public sealed class PatientService(
                 p.Gender.ToString(), p.Country, p.State, p.City,
                 p.Address, p.Description, p.ClinicId, p.WorkRouteId, p.IsActive))
             .SingleOrDefaultAsync(ct);
+        if (patient is null) return PatientNotFound;
 
-        var treatmentsTask = db.Treatments
+        var treatments = await db.Treatments
             .AsNoTracking()
             .Where(t => t.PatientId == id)
             .OrderByDescending(t => t.StartDate)
@@ -178,7 +182,7 @@ public sealed class PatientService(
                 t.Id, t.Name, t.Description, t.Status.ToString(), t.StartDate, t.EndDate))
             .ToListAsync(ct);
 
-        var commentsTask = db.PatientComments
+        var comments = await db.PatientComments
             .AsNoTracking()
             .Where(c => c.PatientId == id)
             .OrderByDescending(c => c.CreatedDate)
@@ -186,12 +190,7 @@ public sealed class PatientService(
                 c.Id, c.Body, c.Type.ToString(), c.Status.ToString(), c.UserId, c.CreatedDate))
             .ToListAsync(ct);
 
-        await Task.WhenAll(patientTask, treatmentsTask, commentsTask);
-
-        var patient = await patientTask;
-        if (patient is null) return PatientNotFound;
-
-        return new PatientFullSummaryResponse(patient, await treatmentsTask, await commentsTask);
+        return new PatientFullSummaryResponse(patient, treatments, comments);
     }
 
     // ─── Treatments ──────────────────────────────────────────────────────────
