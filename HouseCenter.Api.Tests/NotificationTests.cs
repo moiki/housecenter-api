@@ -151,7 +151,56 @@ public sealed class NotificationTests(ApiFactory factory)
         (await UnreadCountAsync(doctorClient)).Should().Be(0);
     }
 
+    // ─── Email channel (Phase 2) ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task OpenConsultation_EmailsAssignedDoctor()
+    {
+        var owner = await OwnerClient();
+        var patient = await CreatePatientAsync(owner);
+        var (_, doctorId) = await LoginUserWithRoleAsync(RoleNames.Doctor);
+        var doctorEmail = await GetUserEmailAsync(doctorId);
+        await AssignDoctorAsync(owner, patient.Id, doctorId);
+
+        await OpenConsultationAsync(owner, patient.Id, doctorId);
+
+        factory.Emails.Sent.Should().Contain(e =>
+            e.To == doctorEmail && e.Subject == "New consultation assigned");
+    }
+
+    [Fact]
+    public async Task EmailFailure_DoesNotBreakAction_AndInAppStillCreated()
+    {
+        var owner = await OwnerClient();
+        var patient = await CreatePatientAsync(owner);
+        var (doctorClient, doctorId) = await LoginUserWithRoleAsync(RoleNames.Doctor);
+        await AssignDoctorAsync(owner, patient.Id, doctorId);
+
+        factory.Emails.ThrowOnSend = true;
+        try
+        {
+            // Best-effort: the email channel throwing must not fail the consultation
+            // action, and the in-app notification must still be persisted.
+            var consultation = await OpenConsultationAsync(owner, patient.Id, doctorId);
+            consultation.Should().NotBeNull();
+
+            var notes = await ListAsync(doctorClient, unreadOnly: true);
+            notes.Items.Should().Contain(n => n.Type == "ConsultationOpened");
+        }
+        finally
+        {
+            factory.Emails.ThrowOnSend = false;
+        }
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    private async Task<string> GetUserEmailAsync(Guid userId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+        return await db.Users.Where(u => u.Id == userId).Select(u => u.Email).SingleAsync();
+    }
 
     private static async Task<PagedResult<NotificationResponse>> ListAsync(HttpClient client, bool unreadOnly)
     {

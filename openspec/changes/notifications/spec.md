@@ -117,8 +117,12 @@ record ConsultationResolvedEvent(
 
 ## Later phases (outline only — full specs added when each PR starts)
 
-- **P2 Email**: an `INotificationHandler` per event sends an email to the recipient via
-  `IEmailService` using new `EmailTemplates`; best-effort (R3).
+- **P2 Email** (implemented): rather than duplicate recipient resolution per channel, the
+  in-app handlers publish a single `NotificationCreatedEvent` per persisted notification.
+  One `EmailNotificationHandler : INotificationHandler<NotificationCreatedEvent>` looks up
+  the recipient's address and sends a templated email (`EmailTemplates.Notification`),
+  best-effort (R3). Push (P4) plugs in as another consumer of the same event. Send runs
+  in-request (consistent with invitations); a background outbox is future work.
 - **P3 Session reminders**: `SessionMissedEvent` published from `UpdateSessionStatus` when
   status → Missed; `SessionUpcomingEvent` from an `IHostedService` that scans Scheduled
   sessions whose `SessionDate` falls in the next N hours (dedup so each session reminds once).

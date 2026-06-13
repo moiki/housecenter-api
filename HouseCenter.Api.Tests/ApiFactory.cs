@@ -1,9 +1,13 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using HouseCenter.Api.Features.Auth;
+using HouseCenter.Api.Common.Email;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using HouseCenter.Api.Features.Auth;
 using Npgsql;
 
 namespace HouseCenter.Api.Tests;
@@ -18,9 +22,19 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     public const string OwnerEmail = "owner@test.local";
     public const string OwnerPassword = "Owner123!test";
 
+    /// <summary>Captures notification/invitation emails instead of sending them, so tests
+    /// can assert delivery. Shared across the collection — filter by recipient address.</summary>
+    public RecordingEmailService Emails { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+
+        builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<IEmailService>();
+            services.AddSingleton<IEmailService>(Emails);
+        });
 
         builder.ConfigureAppConfiguration((_, config) =>
         {

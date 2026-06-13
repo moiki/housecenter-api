@@ -56,8 +56,20 @@ their tasks expanded when their PR starts.
 
 ---
 
-## Phase 2 — Email channel (tasks expanded when PR starts)
-- Email `INotificationHandler` per event via `IEmailService`; `EmailTemplates` additions; best-effort; tests.
+## Phase 2 — Email channel ✅
+
+- [x] Add `NotificationCreatedEvent : INotification` (fan-out point so recipient resolution
+  is not duplicated per channel)
+- [x] In-app handlers publish `NotificationCreatedEvent` per persisted notification
+- [x] `EmailTemplates.Notification(title, body)`
+- [x] `EmailNotificationHandler : INotificationHandler<NotificationCreatedEvent>` — looks up
+  recipient email, sends templated email, best-effort (try/catch + log)
+- [x] Test infra: `RecordingEmailService` double registered in `ApiFactory` (with
+  `ThrowOnSend` toggle), exposed as `factory.Emails`
+- [x] Tests: `OpenConsultation_EmailsAssignedDoctor`,
+  `EmailFailure_DoesNotBreakAction_AndInAppStillCreated`
+
+**Acceptance:** full suite green (76/76).
 
 ## Phase 3 — Session reminders (tasks expanded when PR starts)
 - `SessionMissedEvent` from `UpdateSessionStatus`; `SessionUpcomingEvent` from an `IHostedService` scanner with once-only dedup; tests.

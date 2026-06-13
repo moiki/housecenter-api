@@ -5,12 +5,15 @@ using MediatR;
 
 namespace HouseCenter.Api.Features.Notifications.Handlers;
 
-// In-app channel: each handler turns a domain event into persisted Notification rows.
-// Best-effort (spec R3): a failure here is logged and swallowed so it can never roll back
+// In-app channel + fan-out point: each handler turns a domain event into persisted
+// Notification rows (recipient resolution lives ONLY here), then announces each saved
+// row via NotificationCreatedEvent so other channels (email, push) can deliver it.
+// Best-effort (spec R3): failures are logged and swallowed so they can never roll back
 // or fail the consultation action that raised the event.
 
 public sealed class ConsultationMessageInAppHandler(
     HouseCenterDbContext db,
+    IPublisher publisher,
     ILogger<ConsultationMessageInAppHandler> logger)
     : INotificationHandler<ConsultationMessagePostedEvent>
 {
@@ -22,22 +25,22 @@ public sealed class ConsultationMessageInAppHandler(
             // participant posts, that is the other one; when an admin posts, it is both.
             var recipients = new[] { e.OpenedByUserId, e.AssignedDoctorId }
                 .Where(id => id != e.AuthorId)
-                .Distinct();
+                .Distinct()
+                .ToList();
 
-            foreach (var recipientId in recipients)
+            var created = recipients.Select(recipientId => new Notification
             {
-                db.Notifications.Add(new Notification
-                {
-                    RecipientUserId = recipientId,
-                    Type = NotificationType.ConsultationMessage,
-                    Title = "New message on a consultation",
-                    Body = $"New message on \"{e.Title}\".",
-                    ReferenceType = "Consultation",
-                    ReferenceId = e.ConsultationId
-                });
-            }
+                RecipientUserId = recipientId,
+                Type = NotificationType.ConsultationMessage,
+                Title = "New message on a consultation",
+                Body = $"New message on \"{e.Title}\".",
+                ReferenceType = "Consultation",
+                ReferenceId = e.ConsultationId
+            }).ToList();
 
+            db.Notifications.AddRange(created);
             await db.SaveChangesAsync(ct);
+            await NotificationFanout.AnnounceAsync(publisher, created, ct);
         }
         catch (Exception ex)
         {
@@ -48,6 +51,7 @@ public sealed class ConsultationMessageInAppHandler(
 
 public sealed class ConsultationOpenedInAppHandler(
     HouseCenterDbContext db,
+    IPublisher publisher,
     ILogger<ConsultationOpenedInAppHandler> logger)
     : INotificationHandler<ConsultationOpenedEvent>
 {
@@ -55,7 +59,7 @@ public sealed class ConsultationOpenedInAppHandler(
     {
         try
         {
-            db.Notifications.Add(new Notification
+            var notification = new Notification
             {
                 RecipientUserId = e.AssignedDoctorId,
                 Type = NotificationType.ConsultationOpened,
@@ -63,8 +67,10 @@ public sealed class ConsultationOpenedInAppHandler(
                 Body = $"You were assigned the consultation \"{e.Title}\".",
                 ReferenceType = "Consultation",
                 ReferenceId = e.ConsultationId
-            });
+            };
+            db.Notifications.Add(notification);
             await db.SaveChangesAsync(ct);
+            await NotificationFanout.AnnounceAsync(publisher, [notification], ct);
         }
         catch (Exception ex)
         {
@@ -75,6 +81,7 @@ public sealed class ConsultationOpenedInAppHandler(
 
 public sealed class ConsultationResolvedInAppHandler(
     HouseCenterDbContext db,
+    IPublisher publisher,
     ILogger<ConsultationResolvedInAppHandler> logger)
     : INotificationHandler<ConsultationResolvedEvent>
 {
@@ -82,7 +89,7 @@ public sealed class ConsultationResolvedInAppHandler(
     {
         try
         {
-            db.Notifications.Add(new Notification
+            var notification = new Notification
             {
                 RecipientUserId = e.OpenedByUserId,
                 Type = NotificationType.ConsultationResolved,
@@ -90,12 +97,27 @@ public sealed class ConsultationResolvedInAppHandler(
                 Body = $"Your consultation \"{e.Title}\" was marked resolved.",
                 ReferenceType = "Consultation",
                 ReferenceId = e.ConsultationId
-            });
+            };
+            db.Notifications.Add(notification);
             await db.SaveChangesAsync(ct);
+            await NotificationFanout.AnnounceAsync(publisher, [notification], ct);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to create in-app notification for resolved consultation {Id}", e.ConsultationId);
         }
+    }
+}
+
+internal static class NotificationFanout
+{
+    // One NotificationCreatedEvent per persisted row → every delivery channel consumes
+    // the same uniform event.
+    public static async Task AnnounceAsync(
+        IPublisher publisher, IEnumerable<Notification> notifications, CancellationToken ct)
+    {
+        foreach (var n in notifications)
+            await publisher.Publish(new NotificationCreatedEvent(
+                n.Id, n.RecipientUserId, n.Type, n.Title, n.Body, n.ReferenceType, n.ReferenceId), ct);
     }
 }
