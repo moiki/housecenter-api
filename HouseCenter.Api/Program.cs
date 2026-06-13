@@ -11,8 +11,11 @@ using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Features.Auth;
 using HouseCenter.Api.Features.Clinics;
 using HouseCenter.Api.Features.Collaborators;
+using HouseCenter.Api.Features.Consultations;
 using HouseCenter.Api.Features.Invitations;
 using HouseCenter.Api.Features.Patients;
+using HouseCenter.Api.Features.Patients.Sessions;
+using HouseCenter.Api.Features.Reports;
 using HouseCenter.Api.Features.Roles;
 using HouseCenter.Api.Features.Users;
 using HouseCenter.Api.Features.WorkRoutes;
@@ -83,7 +86,9 @@ try
     // Authorization — named policies instead of magic strings on endpoints
     builder.Services.AddAuthorizationBuilder()
         .AddPolicy(PolicyNames.OwnerOnly, p => p.RequireRole(RoleNames.Owner))
-        .AddPolicy(PolicyNames.AdministratorOrAbove, p => p.RequireRole(RoleNames.Owner, RoleNames.Administrator));
+        .AddPolicy(PolicyNames.AdministratorOrAbove, p => p.RequireRole(RoleNames.Owner, RoleNames.Administrator))
+        .AddPolicy(PolicyNames.MemberOrAbove, p => p.RequireRole(RoleNames.Owner, RoleNames.Administrator, RoleNames.Member))
+        .AddPolicy(PolicyNames.StaffOnly, p => p.RequireRole(RoleNames.Owner, RoleNames.Administrator, RoleNames.Member, RoleNames.Doctor));
 
     // Generic repository — open generic registration: one line covers IRepository<T> for every entity
     builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
@@ -188,6 +193,9 @@ try
     app.MapWorkRouteEndpoints();
     app.MapCollaboratorEndpoints();
     app.MapPatientEndpoints();
+    app.MapSessionEndpoints();
+    app.MapConsultationEndpoints();
+    app.MapReportEndpoints();
 
     app.Run();
 }

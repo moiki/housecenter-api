@@ -13,6 +13,7 @@ public sealed class CreatePatientRequestValidator : AbstractValidator<CreatePati
         RuleFor(x => x.Country).MaximumLength(100);
         RuleFor(x => x.State).MaximumLength(100);
         RuleFor(x => x.City).MaximumLength(100);
+        RuleFor(x => x.PrimaryAttentionType).IsInEnum();
     }
 }
 
@@ -27,6 +28,7 @@ public sealed class UpdatePatientRequestValidator : AbstractValidator<UpdatePati
         RuleFor(x => x.Country).MaximumLength(100);
         RuleFor(x => x.State).MaximumLength(100);
         RuleFor(x => x.City).MaximumLength(100);
+        RuleFor(x => x.PrimaryAttentionType).IsInEnum();
     }
 }
 
@@ -39,6 +41,7 @@ public sealed class CreateTreatmentRequestValidator : AbstractValidator<CreateTr
         RuleFor(x => x.StartDate).NotEmpty();
         RuleFor(x => x.EndDate).GreaterThan(x => x.StartDate)
             .WithMessage("EndDate must be after StartDate");
+        RuleFor(x => x.Type).IsInEnum().When(x => x.Type.HasValue);
     }
 }
 
@@ -51,6 +54,7 @@ public sealed class UpdateTreatmentRequestValidator : AbstractValidator<UpdateTr
         RuleFor(x => x.StartDate).NotEmpty();
         RuleFor(x => x.EndDate).GreaterThan(x => x.StartDate)
             .WithMessage("EndDate must be after StartDate");
+        RuleFor(x => x.Type).IsInEnum().When(x => x.Type.HasValue);
     }
 }
 

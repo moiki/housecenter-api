@@ -10,7 +10,8 @@
 - Returns 201 + session response
 
 ### R2 — Session list (per patient)
-- Any authenticated user can list sessions for a patient
+- Any authenticated user **except Sponsor** can list sessions for a patient
+  (Sponsors get aggregate data via `/reports` — individual sessions return 403)
 - Response is paginated (`PagedResult<AttentionSessionResponse>`)
 - Supports filter by `AttentionType`, `Status`, date range (via query params)
 - Ordered by `SessionDate` descending
@@ -40,8 +41,8 @@
 - Owner only can assign/remove doctors from a patient
 - `POST /patients/{id}/doctors/{userId}` — add
 - `DELETE /patients/{id}/doctors/{userId}` — remove
-- User must have Doctor role; validates at service layer
-- Returns 200 for both
+- User must have Doctor role; validates at service layer (Error.Validation → 400)
+- Returns 204 for both (project convention: empty success responses are 204 No Content)
 
 ## Scenarios
 
@@ -81,8 +82,8 @@ GET    /patients/{id}/sessions?page=&pageSize=&type=&status=  → 200 PagedResul
 PATCH  /patients/{id}/sessions/{sessionId}/status     → 200 AttentionSessionResponse
 DELETE /patients/{id}/sessions/{sessionId}            → 204
 
-POST   /patients/{id}/doctors/{userId}                → 200
-DELETE /patients/{id}/doctors/{userId}                → 200
+POST   /patients/{id}/doctors/{userId}                → 204
+DELETE /patients/{id}/doctors/{userId}                → 204
 ```
 
 ## DTOs

@@ -21,18 +21,18 @@ C#/.NET 10, applying concepts progressively. Every decision has a WHY.
 hoh-project-net/
 ├── ts-hoh-backend/         ← original TypeScript API (reference only, do not modify)
 ├── house-mui-v1/           ← React/MUI frontend (out of scope)
-├── HouseCenter/            ← .NET solution (active work)
-│   ├── HouseCenter.slnx
-│   ├── HouseCenter.Api/        ← main API project
-│   └── HouseCenter.Api.Tests/  ← integration + unit tests
-├── CLAUDE.md               ← this file
-├── MIGRATION_PLAN.md       ← full phase tracker (Phase 1–5 complete)
-├── PHASE2-AUTH-REVIEW.md   ← auth concepts review document
-└── openspec/               ← SDD artifacts for upcoming changes
-    └── changes/
-        ├── attention-sessions/
-        ├── medical-consultations/
-        └── sponsor-reports/
+└── HouseCenter/            ← .NET solution (active work, git root)
+    ├── HouseCenter.slnx
+    ├── HouseCenter.Api/        ← main API project
+    ├── HouseCenter.Api.Tests/  ← integration + unit tests
+    ├── CLAUDE.md               ← this file
+    ├── MIGRATION_PLAN.md       ← full phase tracker (Phase 1–5 complete)
+    ├── PHASE2-AUTH-REVIEW.md   ← auth concepts review document
+    └── openspec/               ← SDD artifacts for upcoming changes
+        └── changes/
+            ├── attention-sessions/
+            ├── medical-consultations/
+            └── sponsor-reports/
 ```
 
 ---
@@ -49,7 +49,9 @@ hoh-project-net/
 | 4 | Patient domain — Patients, Treatments, Comments, pagination, global soft-delete filter | ✅ |
 | 5 | Polish — PerformanceBehavior, CorrelationId, health checks, API versioning, unit tests | ✅ |
 
-**Next work:** Domain V2 — three SDD changes (see `openspec/changes/`).
+**Domain V2 complete (2026-06-12).** All three SDD changes implemented — see `openspec/changes/`.
+**Next work:** see "What comes after Domain V2" in `openspec/IMPLEMENTATION_PLAN.md`
+(notifications, file uploads, anonymization, frontend integration).
 
 ---
 
@@ -119,9 +121,9 @@ A patient can have both types. Treatments are typed accordingly.
 | WorkRoutes | Service | Owned JSON destinations need wholesale replace semantics |
 | Collaborators | Service | Positions (real entities) clear+add via tracked collection |
 | Patients | Service | Large domain — multiple sub-resources in one service |
-| AttentionSessions | **CQRS** (planned) | New, clean slate — CQRS by default |
-| MedicalConsultations | **CQRS** (planned) | New, clean slate |
-| Reports | **CQRS** (planned) | Read-heavy queries, no mutation logic |
+| AttentionSessions | **CQRS** | New, clean slate — CQRS by default |
+| MedicalConsultations | **CQRS** | New, clean slate |
+| Reports | **CQRS** | Read-only query handlers, role-based projection |
 
 ---
 
@@ -137,6 +139,9 @@ A patient can have both types. Treatments are typed accordingly.
   `List<T>.AsQueryable()` doesn't work — use `UseInMemoryDatabase` instead.
 - **MediatR cast in ValidationBehavior**: `(TResponse)(Result)error` — double cast needed because
   compiler can't verify `Result → TResponse` at compile time, even with `where TResponse : Result`.
+- **DbContext is not thread-safe**: `Task.WhenAll` over multiple hot queries on one scoped
+  context races and throws "a second operation was started on this context instance".
+  Await queries sequentially; true parallelism needs one context per query (`IDbContextFactory`).
 
 ---
 
@@ -194,10 +199,10 @@ Test DB: `housecenter_test` (recreated on each test run).
 
 ## SDD changes (Domain V2)
 
-Three changes are planned. See `openspec/changes/` for full specs.
+All three changes implemented (2026-06-12). See `openspec/changes/` for full specs.
 
-| Change | Priority | Summary |
-|---|---|---|
-| `attention-sessions` | P1 | Record actual care events (who attended, when, where) |
-| `medical-consultations` | P2 | Structured thread between collaborator and assigned doctor |
-| `sponsor-reports` | P3 | Aggregate endpoints with role-based projection |
+| Change | Priority | Status | Summary |
+|---|---|---|---|
+| `attention-sessions` | P1 | ✅ | Record actual care events (who attended, when, where) |
+| `medical-consultations` | P2 | ✅ | Structured thread between collaborator and assigned doctor |
+| `sponsor-reports` | P3 | ✅ | Aggregate endpoints with role-based projection |

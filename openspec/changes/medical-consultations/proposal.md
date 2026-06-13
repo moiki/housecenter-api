@@ -4,7 +4,7 @@
 `medical-consultations`
 
 ## Status
-`proposed`
+`implemented` (2026-06-12 — all tasks T1–T4 complete, 57/57 tests green)
 
 ## Problem
 

@@ -3,7 +3,8 @@
 ## Requirements
 
 ### R1 — Open consultation
-- Member, Administrator, or Owner can open a consultation
+- Member (only for patients they collaborate on), Administrator, or Owner can open
+  a consultation. Doctors receive consultations — they don't open them.
 - `PatientId`, `AssignedDoctorId`, `Title` required
 - `TreatmentId` optional (may be about general patient condition)
 - `AssignedDoctorId` must be in the patient's `AssignedDoctors` list
@@ -19,20 +20,24 @@
 - Filter by `Status` supported
 
 ### R3 — Post message
-- Any participant (opener or assigned doctor) can post a message
+- Any participant (opener or assigned doctor) can post a message; Administrators
+  and Owners can also post (see R5 table)
 - `Body` required, `AttachmentUrl` optional
-- Posting a message by the doctor changes status to `UnderReview` (automatic)
+- A message by the assigned doctor on an `Open` consultation changes status to
+  `UnderReview` (automatic; the lifecycle never moves backwards)
+- Posting to a `Resolved` consultation returns 409 — the thread is closed
 - Returns 201 + message response
 
 ### R4 — Update status
-- Only the assigned doctor can mark a consultation as `Resolved`
+- The assigned doctor, an Administrator, or the Owner can mark a consultation as `Resolved`
+  (matches the access control table in R5)
 - `ResolvedAt` is set to `UtcNow` automatically
 - Returns 200 + updated consultation
 
 ### R5 — Access control summary
 | Action | Owner | Admin | Member | Doctor | Sponsor |
 |---|---|---|---|---|---|
-| Open consultation | ✅ | ✅ | ✅ (own patients) | ✅ | ✗ |
+| Open consultation | ✅ | ✅ | ✅ (own patients) | ✗ | ✗ |
 | List consultations | All | All | Own | Assigned | ✗ |
 | Post message | ✅ | ✅ | If opener | If assigned | ✗ |
 | Resolve | ✅ | ✅ | ✗ | If assigned | ✗ |
@@ -72,7 +77,7 @@ SCENARIO: sponsor tries to list consultations
 
 ```
 POST   /consultations                             → 201 ConsultationResponse
-GET    /consultations?page=&status=               → 200 PagedResult<ConsultationSummaryResponse>
+GET    /consultations?page=&status=               → 200 PagedResult<ConsultationResponse>
 GET    /consultations/{id}                        → 200 ConsultationDetailResponse (with messages)
 POST   /consultations/{id}/messages               → 201 ConsultationMessageResponse
 PATCH  /consultations/{id}/status                 → 200 ConsultationResponse

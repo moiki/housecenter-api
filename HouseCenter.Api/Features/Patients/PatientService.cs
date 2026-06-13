@@ -3,6 +3,7 @@ using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Persistence;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
+using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,6 +17,8 @@ public interface IPatientService
     Task<Result<PatientResponse>> UpdateAsync(Guid id, UpdatePatientRequest request, CancellationToken ct);
     Task<Result> DeactivateAsync(Guid id, CancellationToken ct);
     Task<Result> AddCollaboratorAsync(Guid patientId, Guid userId, CancellationToken ct);
+    Task<Result> AddPatientDoctorAsync(Guid patientId, Guid userId, CancellationToken ct);
+    Task<Result> RemovePatientDoctorAsync(Guid patientId, Guid userId, CancellationToken ct);
     Task<Result<PatientFullSummaryResponse>> GetFullSummaryAsync(Guid id, CancellationToken ct);
 
     // Treatments
@@ -64,7 +67,8 @@ public sealed class PatientService(
             .Select(p => new PatientResponse(
                 p.Id, p.FirstName, p.LastName, p.Profile, p.BirthDate,
                 p.Gender.ToString(), p.Country, p.State, p.City,
-                p.Address, p.Description, p.ClinicId, p.WorkRouteId, p.IsActive));
+                p.Address, p.Description, p.PrimaryAttentionType.ToString(),
+                p.ClinicId, p.WorkRouteId, p.IsActive));
 
         return await query.ToPagedResultAsync(paging, ct);
     }
@@ -77,7 +81,8 @@ public sealed class PatientService(
             .Select(p => new PatientResponse(
                 p.Id, p.FirstName, p.LastName, p.Profile, p.BirthDate,
                 p.Gender.ToString(), p.Country, p.State, p.City,
-                p.Address, p.Description, p.ClinicId, p.WorkRouteId, p.IsActive))
+                p.Address, p.Description, p.PrimaryAttentionType.ToString(),
+                p.ClinicId, p.WorkRouteId, p.IsActive))
             .SingleOrDefaultAsync(ct);
 
         return patient is not null ? patient : PatientNotFound;
@@ -97,6 +102,7 @@ public sealed class PatientService(
             City = request.City,
             Address = request.Address,
             Description = request.Description,
+            PrimaryAttentionType = request.PrimaryAttentionType,
             ClinicId = request.ClinicId,
             WorkRouteId = request.WorkRouteId
         };
@@ -122,6 +128,7 @@ public sealed class PatientService(
         patient.City = request.City;
         patient.Address = request.Address;
         patient.Description = request.Description;
+        patient.PrimaryAttentionType = request.PrimaryAttentionType;
         patient.ClinicId = request.ClinicId;
         patient.WorkRouteId = request.WorkRouteId;
 
@@ -157,11 +164,50 @@ public sealed class PatientService(
         return Result.Success();
     }
 
+    public async Task<Result> AddPatientDoctorAsync(Guid patientId, Guid userId, CancellationToken ct)
+    {
+        var patient = await patients.Query()
+            .Include(p => p.AssignedDoctors)
+            .SingleOrDefaultAsync(p => p.Id == patientId, ct);
+        if (patient is null) return PatientNotFound;
+
+        var user = await db.Users
+            .Include(u => u.Roles)
+            .SingleOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null) return Error.NotFound("users.not_found", "User not found");
+
+        if (!user.Roles.Any(r => r.Name == RoleNames.Doctor))
+            return Error.Validation("patients.not_a_doctor", "User does not have the Doctor role");
+
+        if (patient.AssignedDoctors.Any(d => d.Id == userId))
+            return Error.Conflict("patients.doctor_exists", "Doctor is already assigned to this patient");
+
+        patient.AssignedDoctors.Add(user);
+        await patients.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
+    public async Task<Result> RemovePatientDoctorAsync(Guid patientId, Guid userId, CancellationToken ct)
+    {
+        var patient = await patients.Query()
+            .Include(p => p.AssignedDoctors)
+            .SingleOrDefaultAsync(p => p.Id == patientId, ct);
+        if (patient is null) return PatientNotFound;
+
+        var doctor = patient.AssignedDoctors.FirstOrDefault(d => d.Id == userId);
+        if (doctor is null)
+            return Error.NotFound("patients.doctor_not_assigned", "Doctor is not assigned to this patient");
+
+        patient.AssignedDoctors.Remove(doctor);
+        await patients.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+
     // Sequential awaits on purpose: a DbContext allows only ONE in-flight operation —
     // Task.WhenAll over hot queries on the same scoped context races and throws
-    // "A second operation was started on this context instance". True parallelism would
-    // need a separate context per query (IDbContextFactory). The patient query gates the
-    // rest: not-found skips the other two round trips.
+    // "a second operation was started on this context". True parallelism would need
+    // a separate context per query (IDbContextFactory). As a bonus, the patient
+    // query now gates the rest: not-found skips the other two round trips entirely.
     public async Task<Result<PatientFullSummaryResponse>> GetFullSummaryAsync(Guid id, CancellationToken ct)
     {
         var patient = await db.Patients
@@ -170,7 +216,8 @@ public sealed class PatientService(
             .Select(p => new PatientResponse(
                 p.Id, p.FirstName, p.LastName, p.Profile, p.BirthDate,
                 p.Gender.ToString(), p.Country, p.State, p.City,
-                p.Address, p.Description, p.ClinicId, p.WorkRouteId, p.IsActive))
+                p.Address, p.Description, p.PrimaryAttentionType.ToString(),
+                p.ClinicId, p.WorkRouteId, p.IsActive))
             .SingleOrDefaultAsync(ct);
         if (patient is null) return PatientNotFound;
 
@@ -207,7 +254,7 @@ public sealed class PatientService(
             .OrderByDescending(t => t.StartDate)
             .Select(t => new TreatmentResponse(
                 t.Id, t.PatientId, t.Name, t.Description, t.Profile,
-                t.Status.ToString(), t.StartDate, t.EndDate, t.IsActive));
+                t.Status.ToString(), t.Type.ToString(), t.StartDate, t.EndDate, t.IsActive));
 
         return await query.ToPagedResultAsync(paging, ct);
     }
@@ -215,8 +262,13 @@ public sealed class PatientService(
     public async Task<Result<TreatmentResponse>> CreateTreatmentAsync(
         Guid patientId, CreateTreatmentRequest request, CancellationToken ct)
     {
-        if (!await db.Patients.AnyAsync(p => p.Id == patientId, ct))
-            return PatientNotFound;
+        // Projecting to nullable lets one query do both jobs: null means the
+        // patient doesn't exist; a value gives us the default for Type (spec R6).
+        var patientType = await db.Patients
+            .Where(p => p.Id == patientId)
+            .Select(p => (AttentionType?)p.PrimaryAttentionType)
+            .SingleOrDefaultAsync(ct);
+        if (patientType is null) return PatientNotFound;
 
         var treatment = new Treatment
         {
@@ -225,7 +277,8 @@ public sealed class PatientService(
             Description = request.Description,
             Profile = request.Profile,
             StartDate = request.StartDate,
-            EndDate = request.EndDate
+            EndDate = request.EndDate,
+            Type = request.Type ?? patientType.Value
         };
 
         treatments.Add(treatment);
@@ -244,6 +297,8 @@ public sealed class PatientService(
         treatment.Profile = request.Profile;
         treatment.StartDate = request.StartDate;
         treatment.EndDate = request.EndDate;
+        if (request.Type is not null)
+            treatment.Type = request.Type.Value;
 
         await treatments.SaveChangesAsync(ct);
         return ToTreatmentResponse(treatment);
@@ -414,11 +469,12 @@ public sealed class PatientService(
     private static PatientResponse ToPatientResponse(Patient p) => new(
         p.Id, p.FirstName, p.LastName, p.Profile, p.BirthDate,
         p.Gender.ToString(), p.Country, p.State, p.City,
-        p.Address, p.Description, p.ClinicId, p.WorkRouteId, p.IsActive);
+        p.Address, p.Description, p.PrimaryAttentionType.ToString(),
+        p.ClinicId, p.WorkRouteId, p.IsActive);
 
     private static TreatmentResponse ToTreatmentResponse(Treatment t) => new(
         t.Id, t.PatientId, t.Name, t.Description, t.Profile,
-        t.Status.ToString(), t.StartDate, t.EndDate, t.IsActive);
+        t.Status.ToString(), t.Type.ToString(), t.StartDate, t.EndDate, t.IsActive);
 
     private static TreatmentDetailResponse ToDetailResponse(TreatmentDetail d) => new(
         d.Id, d.TreatmentId, d.Name, d.Description, d.Profile, d.TreatmentDate, d.IsActive);

@@ -22,6 +22,66 @@ namespace HouseCenter.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.AttentionSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AttentionType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("ClinicId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CollaboratorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("SessionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("WorkRouteId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClinicId");
+
+                    b.HasIndex("CollaboratorId");
+
+                    b.HasIndex("PatientId");
+
+                    b.HasIndex("WorkRouteId");
+
+                    b.ToTable("AttentionSessions");
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Clinic", b =>
                 {
                     b.Property<Guid>("Id")
@@ -122,6 +182,45 @@ namespace HouseCenter.Api.Migrations
                     b.ToTable("Collaborators");
                 });
 
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.ConsultationMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AttachmentUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<Guid>("ConsultationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("ConsultationId");
+
+                    b.ToTable("ConsultationMessages");
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Invitation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -156,6 +255,59 @@ namespace HouseCenter.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("Invitations");
+                });
+
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.MedicalConsultation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssignedDoctorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OpenedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid?>("TreatmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedDoctorId");
+
+                    b.HasIndex("OpenedByUserId");
+
+                    b.HasIndex("PatientId");
+
+                    b.HasIndex("TreatmentId");
+
+                    b.ToTable("MedicalConsultations");
                 });
 
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Patient", b =>
@@ -206,6 +358,13 @@ namespace HouseCenter.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("PrimaryAttentionType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Medical");
 
                     b.Property<string>("Profile")
                         .HasColumnType("text");
@@ -365,6 +524,13 @@ namespace HouseCenter.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Medical");
 
                     b.Property<DateTime>("UpdatedDate")
                         .HasColumnType("timestamp with time zone");
@@ -607,6 +773,54 @@ namespace HouseCenter.Api.Migrations
                     b.ToTable("user_roles", (string)null);
                 });
 
+            modelBuilder.Entity("patient_doctors", b =>
+                {
+                    b.Property<Guid>("DoctorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PatientId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("DoctorId", "PatientId");
+
+                    b.HasIndex("PatientId");
+
+                    b.ToTable("patient_doctors");
+                });
+
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.AttentionSession", b =>
+                {
+                    b.HasOne("HouseCenter.Api.Domain.Entities.Clinic", "Clinic")
+                        .WithMany()
+                        .HasForeignKey("ClinicId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "Collaborator")
+                        .WithMany()
+                        .HasForeignKey("CollaboratorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HouseCenter.Api.Domain.Entities.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HouseCenter.Api.Domain.Entities.WorkRoute", "WorkRoute")
+                        .WithMany()
+                        .HasForeignKey("WorkRouteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Clinic");
+
+                    b.Navigation("Collaborator");
+
+                    b.Navigation("Patient");
+
+                    b.Navigation("WorkRoute");
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Collaborator", b =>
                 {
                     b.HasOne("HouseCenter.Api.Domain.Entities.Clinic", "Clinic")
@@ -623,6 +837,59 @@ namespace HouseCenter.Api.Migrations
                     b.Navigation("Clinic");
 
                     b.Navigation("WorkRoute");
+                });
+
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.ConsultationMessage", b =>
+                {
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HouseCenter.Api.Domain.Entities.MedicalConsultation", "Consultation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConsultationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Consultation");
+                });
+
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.MedicalConsultation", b =>
+                {
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "AssignedDoctor")
+                        .WithMany()
+                        .HasForeignKey("AssignedDoctorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "OpenedBy")
+                        .WithMany()
+                        .HasForeignKey("OpenedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HouseCenter.Api.Domain.Entities.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HouseCenter.Api.Domain.Entities.Treatment", "Treatment")
+                        .WithMany()
+                        .HasForeignKey("TreatmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AssignedDoctor");
+
+                    b.Navigation("OpenedBy");
+
+                    b.Navigation("Patient");
+
+                    b.Navigation("Treatment");
                 });
 
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Patient", b =>
@@ -788,6 +1055,21 @@ namespace HouseCenter.Api.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("patient_doctors", b =>
+                {
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("DoctorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HouseCenter.Api.Domain.Entities.Patient", null)
+                        .WithMany()
+                        .HasForeignKey("PatientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Clinic", b =>
                 {
                     b.Navigation("Collaborators");
@@ -800,6 +1082,11 @@ namespace HouseCenter.Api.Migrations
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Collaborator", b =>
                 {
                     b.Navigation("Positions");
+                });
+
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.MedicalConsultation", b =>
+                {
+                    b.Navigation("Messages");
                 });
 
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Patient", b =>
