@@ -67,6 +67,23 @@ try
         builder.Configuration.GetSection(PushOptions.SectionName));
     builder.Services.Configure<FileStorageOptions>(
         builder.Configuration.GetSection(FileStorageOptions.SectionName));
+    builder.Services.Configure<CorsOptions>(
+        builder.Configuration.GetSection(CorsOptions.SectionName));
+
+    // CORS — lets the React web app (dev servers) call the API cross-origin.
+    // Explicit origins (not AllowAnyOrigin) so AllowCredentials can be added later
+    // without a refactor if a refresh-token cookie is ever introduced.
+    var corsOrigins = builder.Configuration
+        .GetSection(CorsOptions.SectionName)
+        .Get<CorsOptions>()?.AllowedOrigins ?? [];
+
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy(CorsOptions.PolicyName, policy =>
+            policy.WithOrigins(corsOrigins)
+                  .AllowAnyHeader()
+                  .AllowAnyMethod());
+    });
 
     // File storage: local disk by default (zero infra). S3 backend arrives in Phase 2.
     builder.Services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
@@ -175,6 +192,10 @@ try
     app.UseHttpsRedirection();
     app.UseMiddleware<CorrelationIdMiddleware>();
     app.UseSerilogRequestLogging();
+
+    // Before auth: a preflight OPTIONS carries no Authorization header, so CORS must
+    // resolve it (and short-circuit with 204) before the auth middleware can 401 it.
+    app.UseCors(CorsOptions.PolicyName);
 
     app.UseAuthentication();
     app.UseAuthorization();
