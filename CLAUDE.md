@@ -181,6 +181,7 @@ Jwt:Secret / RefreshSecret / InvitationSecret / ResetSecret
 Email:Host / Port / UserName / Password / FromAddress
 App:FrontendUrl
 Seed:OwnerEmail / Seed:OwnerPassword
+Push:CredentialsJson   # Firebase service-account JSON; blank = push logs instead of sending (FCM off)
 ```
 
 Integration tests override these via `ApiFactory.ConfigureWebHost` (in-memory collection).

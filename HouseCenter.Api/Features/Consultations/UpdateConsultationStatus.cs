@@ -3,6 +3,7 @@ using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
+using HouseCenter.Api.Features.Notifications.Events;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,7 +14,7 @@ public sealed record UpdateConsultationStatusCommand(
     ConsultationStatus Status,
     ClaimsPrincipal Principal) : IRequest<Result<ConsultationResponse>>;
 
-public sealed class UpdateConsultationStatusHandler(HouseCenterDbContext db)
+public sealed class UpdateConsultationStatusHandler(HouseCenterDbContext db, IPublisher publisher)
     : IRequestHandler<UpdateConsultationStatusCommand, Result<ConsultationResponse>>
 {
     public async Task<Result<ConsultationResponse>> Handle(
@@ -44,6 +45,9 @@ public sealed class UpdateConsultationStatusHandler(HouseCenterDbContext db)
         consultation.Status = ConsultationStatus.Resolved;
         consultation.ResolvedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
+
+        await publisher.Publish(new ConsultationResolvedEvent(
+            consultation.Id, consultation.Title, consultation.OpenedByUserId), ct);
 
         return ConsultationMapping.ToResponse(consultation);
     }

@@ -26,4 +26,7 @@ public class AttentionSession : BaseEntity
     public int? DurationMinutes { get; set; }
     public string? Notes { get; set; }
     public SessionStatus Status { get; set; } = SessionStatus.Scheduled;
+
+    // Set the first time the "upcoming" reminder fires, so the scanner reminds once.
+    public DateTime? ReminderSentAt { get; set; }
 }

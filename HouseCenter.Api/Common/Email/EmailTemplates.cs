@@ -12,6 +12,14 @@ public static class EmailTemplates
         </body></html>
         """;
 
+    public static string Notification(string title, string body) => $"""
+        <html><body style="font-family: sans-serif; color: #333;">
+          <h2>{title}</h2>
+          <p>{body}</p>
+          <p style="color:#777;font-size:12px;">You are receiving this because you have activity in HouseCenter.</p>
+        </body></html>
+        """;
+
     public static string PasswordReset(string resetUrl) => $"""
         <html><body style="font-family: sans-serif; color: #333;">
           <h2>Reset your HouseCenter password</h2>

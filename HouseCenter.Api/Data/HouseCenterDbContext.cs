@@ -21,6 +21,8 @@ public class HouseCenterDbContext(DbContextOptions<HouseCenterDbContext> options
     public DbSet<AttentionSession> AttentionSessions => Set<AttentionSession>();
     public DbSet<MedicalConsultation> MedicalConsultations => Set<MedicalConsultation>();
     public DbSet<ConsultationMessage> ConsultationMessages => Set<ConsultationMessage>();
+    public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

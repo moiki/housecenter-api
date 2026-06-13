@@ -55,6 +55,9 @@ namespace HouseCenter.Api.Migrations
                     b.Property<Guid>("PatientId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ReminderSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("SessionDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -310,6 +313,59 @@ namespace HouseCenter.Api.Migrations
                     b.ToTable("MedicalConsultations");
                 });
 
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReferenceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReferenceType")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipientUserId", "IsRead");
+
+                    b.ToTable("Notifications");
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Patient", b =>
                 {
                     b.Property<Guid>("Id")
@@ -460,6 +516,44 @@ namespace HouseCenter.Api.Migrations
                     b.HasIndex("EmployeeId");
 
                     b.ToTable("Positions");
+                });
+
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.PushSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("OwnerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerUserId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("PushSubscriptions");
                 });
 
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Role", b =>
@@ -892,6 +986,17 @@ namespace HouseCenter.Api.Migrations
                     b.Navigation("Treatment");
                 });
 
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Recipient");
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Patient", b =>
                 {
                     b.HasOne("HouseCenter.Api.Domain.Entities.Clinic", "Clinic")
@@ -937,6 +1042,17 @@ namespace HouseCenter.Api.Migrations
                         .IsRequired();
 
                     b.Navigation("Collaborator");
+                });
+
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.PushSubscription", b =>
+                {
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
                 });
 
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.Treatment", b =>

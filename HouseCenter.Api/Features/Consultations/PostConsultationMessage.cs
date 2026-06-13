@@ -3,6 +3,7 @@ using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
+using HouseCenter.Api.Features.Notifications.Events;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +15,7 @@ public sealed record PostConsultationMessageCommand(
     string? AttachmentUrl,
     ClaimsPrincipal Principal) : IRequest<Result<ConsultationMessageResponse>>;
 
-public sealed class PostConsultationMessageHandler(HouseCenterDbContext db)
+public sealed class PostConsultationMessageHandler(HouseCenterDbContext db, IPublisher publisher)
     : IRequestHandler<PostConsultationMessageCommand, Result<ConsultationMessageResponse>>
 {
     public async Task<Result<ConsultationMessageResponse>> Handle(
@@ -55,6 +56,10 @@ public sealed class PostConsultationMessageHandler(HouseCenterDbContext db)
             consultation.Status = ConsultationStatus.UnderReview;
 
         await db.SaveChangesAsync(ct);
+
+        await publisher.Publish(new ConsultationMessagePostedEvent(
+            consultation.Id, consultation.Title, userId,
+            consultation.OpenedByUserId, consultation.AssignedDoctorId), ct);
 
         var authorName = await db.Users
             .Where(u => u.Id == userId)

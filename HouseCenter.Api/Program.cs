@@ -6,6 +6,7 @@ using HouseCenter.Api.Common.Email;
 using Microsoft.Extensions.Logging;
 using HouseCenter.Api.Common.Middleware;
 using HouseCenter.Api.Common.Persistence;
+using HouseCenter.Api.Common.Push;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Features.Auth;
@@ -13,6 +14,7 @@ using HouseCenter.Api.Features.Clinics;
 using HouseCenter.Api.Features.Collaborators;
 using HouseCenter.Api.Features.Consultations;
 using HouseCenter.Api.Features.Invitations;
+using HouseCenter.Api.Features.Notifications;
 using HouseCenter.Api.Features.Patients;
 using HouseCenter.Api.Features.Patients.Sessions;
 using HouseCenter.Api.Features.Reports;
@@ -57,6 +59,19 @@ try
         builder.Configuration.GetSection(AppOptions.SectionName));
     builder.Services.Configure<SeedOptions>(
         builder.Configuration.GetSection(SeedOptions.SectionName));
+    builder.Services.Configure<SessionReminderOptions>(
+        builder.Configuration.GetSection(SessionReminderOptions.SectionName));
+    builder.Services.Configure<PushOptions>(
+        builder.Configuration.GetSection(PushOptions.SectionName));
+
+    // Push sender: real FCM only when credentials are present, else a logging no-op so the
+    // pipeline runs without a Firebase project (same fallback idea as SMTP with no host).
+    var pushConfigured = !string.IsNullOrWhiteSpace(
+        builder.Configuration.GetSection(PushOptions.SectionName)[nameof(PushOptions.CredentialsJson)]);
+    if (pushConfigured)
+        builder.Services.AddSingleton<IPushSender, FirebasePushSender>();
+    else
+        builder.Services.AddSingleton<IPushSender, LoggingPushSender>();
 
     // Database
     var connectionString = builder.Configuration
@@ -135,6 +150,10 @@ try
             tags: ["db", "ready"]);
     builder.Services.AddHostedService<DatabaseSeeder>();
 
+    // Session reminders: scoped scanner (testable) + the background trigger that runs it.
+    builder.Services.AddScoped<SessionReminderScanner>();
+    builder.Services.AddHostedService<SessionReminderService>();
+
     var app = builder.Build();
 
     app.UseExceptionHandler();
@@ -196,6 +215,7 @@ try
     app.MapSessionEndpoints();
     app.MapConsultationEndpoints();
     app.MapReportEndpoints();
+    app.MapNotificationEndpoints();
 
     app.Run();
 }
