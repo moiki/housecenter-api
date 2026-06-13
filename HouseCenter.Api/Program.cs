@@ -7,6 +7,8 @@ using Microsoft.Extensions.Logging;
 using HouseCenter.Api.Common.Middleware;
 using HouseCenter.Api.Common.Persistence;
 using HouseCenter.Api.Common.Push;
+using HouseCenter.Api.Common.Storage;
+using HouseCenter.Api.Features.Attachments;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Features.Auth;
@@ -63,6 +65,12 @@ try
         builder.Configuration.GetSection(SessionReminderOptions.SectionName));
     builder.Services.Configure<PushOptions>(
         builder.Configuration.GetSection(PushOptions.SectionName));
+    builder.Services.Configure<FileStorageOptions>(
+        builder.Configuration.GetSection(FileStorageOptions.SectionName));
+
+    // File storage: local disk by default (zero infra). S3 backend arrives in Phase 2.
+    builder.Services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
+    builder.Services.AddScoped<IAttachmentAuthorizer, AttachmentAuthorizer>();
 
     // Push sender: real FCM only when credentials are present, else a logging no-op so the
     // pipeline runs without a Firebase project (same fallback idea as SMTP with no host).
@@ -216,6 +224,7 @@ try
     app.MapConsultationEndpoints();
     app.MapReportEndpoints();
     app.MapNotificationEndpoints();
+    app.MapAttachmentEndpoints();
 
     app.Run();
 }

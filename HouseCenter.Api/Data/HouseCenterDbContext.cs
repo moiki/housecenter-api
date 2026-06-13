@@ -23,6 +23,7 @@ public class HouseCenterDbContext(DbContextOptions<HouseCenterDbContext> options
     public DbSet<ConsultationMessage> ConsultationMessages => Set<ConsultationMessage>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
