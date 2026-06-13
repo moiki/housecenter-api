@@ -28,8 +28,11 @@ jobs:
           --health-retries 5
 
     env:
-      # ApiFactory reads this, swaps Database -> housecenter_test, recreates it.
-      Database__ConnectionString: "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres"
+      # Point straight at the test database. .NET config precedence lets this env var
+      # win over the ApiFactory's in-memory override, so it must already name
+      # housecenter_test — otherwise the seeder's EnsureDeleted would target whatever
+      # DB is named here (e.g. "postgres", which can't drop itself: 55006).
+      Database__ConnectionString: "Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=housecenter_test"
 
     steps:
       - uses: actions/checkout@v4
