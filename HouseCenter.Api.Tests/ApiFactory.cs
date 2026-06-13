@@ -61,6 +61,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["Seed:OwnerEmail"] = OwnerEmail,
                 ["Seed:OwnerPassword"] = OwnerPassword,
                 ["App:FrontendUrl"] = "http://localhost:3000",
+                // The reminder scanner is driven directly in tests; keep the timed service off
+                ["SessionReminders:Enabled"] = "false",
                 // Surface the JwtBearer rejection reason in test output
                 ["Serilog:MinimumLevel:Override:Microsoft.AspNetCore.Authentication"] = "Debug"
             });

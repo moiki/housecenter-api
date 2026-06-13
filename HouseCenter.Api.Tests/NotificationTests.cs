@@ -7,9 +7,11 @@ using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Auth;
+using HouseCenter.Api.Features.Clinics;
 using HouseCenter.Api.Features.Consultations;
 using HouseCenter.Api.Features.Notifications;
 using HouseCenter.Api.Features.Patients;
+using HouseCenter.Api.Features.Patients.Sessions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -193,7 +195,76 @@ public sealed class NotificationTests(ApiFactory factory)
         }
     }
 
+    // ─── Session reminders (Phase 3) ──────────────────────────────────────────
+
+    [Fact]
+    public async Task MarkSessionMissed_NotifiesCollaborator()
+    {
+        var owner = await OwnerClient();
+        var patient = await CreatePatientAsync(owner);
+        var clinic = await CreateClinicAsync(owner);
+        var (memberClient, memberId) = await LoginUserWithRoleAsync(RoleNames.Member);
+        var session = await CreateSessionAsync(owner, patient.Id, memberId, clinic.Id, DateTime.UtcNow);
+
+        var patch = await owner.PatchAsJsonAsync(
+            $"/patients/{patient.Id}/sessions/{session.Id}/status",
+            new UpdateSessionStatusRequest(SessionStatus.Missed, null, null));
+        patch.EnsureSuccessStatusCode();
+
+        var notes = await ListAsync(memberClient, unreadOnly: false);
+        notes.Items.Should().Contain(n => n.Type == "SessionMissed" && n.ReferenceId == session.Id);
+    }
+
+    [Fact]
+    public async Task Scanner_NotifiesUpcomingSession_AndIsIdempotent()
+    {
+        var owner = await OwnerClient();
+        var patient = await CreatePatientAsync(owner);
+        var clinic = await CreateClinicAsync(owner);
+        var (memberClient, memberId) = await LoginUserWithRoleAsync(RoleNames.Member);
+        // Inside the 24h window so the scanner picks it up.
+        var session = await CreateSessionAsync(owner, patient.Id, memberId, clinic.Id, DateTime.UtcNow.AddHours(2));
+
+        await RunScannerAsync();
+
+        var afterFirst = (await ListAsync(memberClient, unreadOnly: false)).Items
+            .Count(n => n.Type == "SessionUpcoming" && n.ReferenceId == session.Id);
+        afterFirst.Should().Be(1);
+
+        // Second scan must not re-remind the same session (ReminderSentAt dedup).
+        await RunScannerAsync();
+
+        var afterSecond = (await ListAsync(memberClient, unreadOnly: false)).Items
+            .Count(n => n.Type == "SessionUpcoming" && n.ReferenceId == session.Id);
+        afterSecond.Should().Be(1);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    private async Task RunScannerAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var scanner = scope.ServiceProvider.GetRequiredService<SessionReminderScanner>();
+        await scanner.ScanAndNotifyAsync(CancellationToken.None);
+    }
+
+    private static async Task<ClinicResponse> CreateClinicAsync(HttpClient client)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/clinics",
+            new CreateClinicRequest($"Notif {Guid.NewGuid():N}"[..25], "Calle 1"));
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ClinicResponse>())!;
+    }
+
+    private static async Task<AttentionSessionResponse> CreateSessionAsync(
+        HttpClient client, Guid patientId, Guid collaboratorId, Guid clinicId, DateTime sessionDate)
+    {
+        var response = await client.PostAsJsonAsync($"/patients/{patientId}/sessions",
+            new CreateAttentionSessionRequest(
+                collaboratorId, clinicId, null, AttentionType.Medical, sessionDate, null, null));
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<AttentionSessionResponse>())!;
+    }
 
     private async Task<string> GetUserEmailAsync(Guid userId)
     {

@@ -3,6 +3,7 @@ using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
+using HouseCenter.Api.Features.Notifications.Events;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,7 +17,7 @@ public sealed record UpdateSessionStatusCommand(
     string? Notes,
     ClaimsPrincipal Principal) : IRequest<Result<AttentionSessionResponse>>;
 
-public sealed class UpdateSessionStatusHandler(HouseCenterDbContext db)
+public sealed class UpdateSessionStatusHandler(HouseCenterDbContext db, IPublisher publisher)
     : IRequestHandler<UpdateSessionStatusCommand, Result<AttentionSessionResponse>>
 {
     public async Task<Result<AttentionSessionResponse>> Handle(
@@ -54,6 +55,10 @@ public sealed class UpdateSessionStatusHandler(HouseCenterDbContext db)
             session.Notes = request.Notes;
 
         await db.SaveChangesAsync(ct);
+
+        if (session.Status == SessionStatus.Missed)
+            await publisher.Publish(new SessionMissedEvent(
+                session.Id, session.CollaboratorId, session.SessionDate), ct);
 
         return new AttentionSessionResponse(
             session.Id, session.PatientId, session.CollaboratorId,

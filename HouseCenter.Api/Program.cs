@@ -58,6 +58,8 @@ try
         builder.Configuration.GetSection(AppOptions.SectionName));
     builder.Services.Configure<SeedOptions>(
         builder.Configuration.GetSection(SeedOptions.SectionName));
+    builder.Services.Configure<SessionReminderOptions>(
+        builder.Configuration.GetSection(SessionReminderOptions.SectionName));
 
     // Database
     var connectionString = builder.Configuration
@@ -135,6 +137,10 @@ try
             name: "postgres",
             tags: ["db", "ready"]);
     builder.Services.AddHostedService<DatabaseSeeder>();
+
+    // Session reminders: scoped scanner (testable) + the background trigger that runs it.
+    builder.Services.AddScoped<SessionReminderScanner>();
+    builder.Services.AddHostedService<SessionReminderService>();
 
     var app = builder.Build();
 

@@ -71,8 +71,21 @@ their tasks expanded when their PR starts.
 
 **Acceptance:** full suite green (76/76).
 
-## Phase 3 — Session reminders (tasks expanded when PR starts)
-- `SessionMissedEvent` from `UpdateSessionStatus`; `SessionUpcomingEvent` from an `IHostedService` scanner with once-only dedup; tests.
+## Phase 3 — Session reminders ✅
+
+- [x] `SessionMissedEvent` + `SessionUpcomingEvent` (`INotification`); `SessionReminderOptions`
+  (`UpcomingWindowHours=24`, `ScanIntervalMinutes=15`, `Enabled`)
+- [x] `ReminderSentAt` (DateTime?) column on `AttentionSession` + migration `AddSessionReminderSentAt`
+- [x] Publish `SessionMissedEvent` from `UpdateSessionStatus` when status → Missed
+- [x] In-app handlers for both session events (recipient = collaborator; reuse the fan-out)
+- [x] `SessionReminderScanner.ScanAndNotifyAsync` (testable) — scans Scheduled sessions in the
+  window with `ReminderSentAt == null`, publishes, marks reminded via set-based `ExecuteUpdate`
+- [x] `SessionReminderService : BackgroundService` (PeriodicTimer, scoped scan) + registered;
+  disabled in tests via `SessionReminders:Enabled=false`
+- [x] Tests: `MarkSessionMissed_NotifiesCollaborator`,
+  `Scanner_NotifiesUpcomingSession_AndIsIdempotent`
+
+**Acceptance:** full suite green (78/78).
 
 ## Phase 4 — Push (tasks expanded when PR starts)
 - Resolve push provider; `PushSubscription` entity + registration endpoints; push handler; tests.

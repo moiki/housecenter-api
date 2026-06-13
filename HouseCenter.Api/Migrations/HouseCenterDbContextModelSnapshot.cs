@@ -55,6 +55,9 @@ namespace HouseCenter.Api.Migrations
                     b.Property<Guid>("PatientId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ReminderSentAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime>("SessionDate")
                         .HasColumnType("timestamp with time zone");
 

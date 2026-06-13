@@ -123,8 +123,12 @@ record ConsultationResolvedEvent(
   the recipient's address and sends a templated email (`EmailTemplates.Notification`),
   best-effort (R3). Push (P4) plugs in as another consumer of the same event. Send runs
   in-request (consistent with invitations); a background outbox is future work.
-- **P3 Session reminders**: `SessionMissedEvent` published from `UpdateSessionStatus` when
-  status → Missed; `SessionUpcomingEvent` from an `IHostedService` that scans Scheduled
-  sessions whose `SessionDate` falls in the next N hours (dedup so each session reminds once).
+- **P3 Session reminders** (implemented): `SessionMissedEvent` published in-request from
+  `UpdateSessionStatus` when status → Missed; `SessionUpcomingEvent` from a
+  `BackgroundService` (PeriodicTimer) that runs a scoped `SessionReminderScanner` — it scans
+  Scheduled sessions whose `SessionDate` is within `UpcomingWindowHours` and whose
+  `ReminderSentAt` is null, publishes, then set-updates `ReminderSentAt` so each session
+  reminds once. Both events notify the session's collaborator and reuse the
+  `NotificationCreatedEvent` fan-out (in-app + email automatically).
 - **P4 Push**: `PushSubscription` entity + registration endpoints; a push
   `INotificationHandler`; provider per the proposal's open question.
