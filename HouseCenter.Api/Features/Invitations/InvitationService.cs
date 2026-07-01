@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using HouseCenter.Api.Common.Email;
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Entities;
@@ -13,6 +14,7 @@ namespace HouseCenter.Api.Features.Invitations;
 
 public interface IInvitationService
 {
+    Task<Result<PagedResult<InvitationResponse>>> ListAsync(PageQuery paging, CancellationToken ct);
     Task<Result<InvitationResponse>> CreateAsync(CreateInvitationRequest request, CancellationToken ct);
     Task<Result> ResendAsync(Guid id, CancellationToken ct);
     Task<Result> DeleteAsync(Guid id, CancellationToken ct);
@@ -26,6 +28,16 @@ public sealed class InvitationService(
     IOptions<AppOptions> appOptions,
     ILogger<InvitationService> logger) : IInvitationService
 {
+    public async Task<Result<PagedResult<InvitationResponse>>> ListAsync(PageQuery paging, CancellationToken ct)
+    {
+        var query = db.Invitations
+            .AsNoTracking()
+            .OrderByDescending(i => i.CreatedDate)
+            .Select(i => new InvitationResponse(i.Id, i.Email, i.RoleId, i.Status.ToString(), i.CreatedDate));
+
+        return await query.ToPagedResultAsync(paging, ct);
+    }
+
     public async Task<Result<InvitationResponse>> CreateAsync(CreateInvitationRequest request, CancellationToken ct)
     {
         if (await db.Users.AnyAsync(u => u.Email == request.Email, ct))

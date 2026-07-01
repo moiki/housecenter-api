@@ -1,3 +1,4 @@
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Common.Validation;
 using HouseCenter.Api.Domain.Constants;
@@ -9,6 +10,11 @@ public static class InvitationEndpoints
     public static IEndpointRouteBuilder MapInvitationEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/invitations").WithTags("Invitations");
+
+        group.MapGet("/", async ([AsParameters] PageQuery paging, IInvitationService invitations, CancellationToken ct) =>
+                (await invitations.ListAsync(paging, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithName("ListInvitations");
 
         group.MapPost("/", async (CreateInvitationRequest request, IInvitationService invitations, CancellationToken ct) =>
             {

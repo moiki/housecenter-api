@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
@@ -78,6 +79,33 @@ public sealed class SignupFlowTests(ApiFactory factory)
     {
         var response = await _client.PostAsJsonAsync("/invitations",
             new CreateInvitationRequest("anyone@test.local", Guid.NewGuid()));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ListInvitations_AfterCreate_ReturnsIt()
+    {
+        var ownerTokens = await LoginAsOwnerAsync();
+        var memberRoleId = await GetRoleIdAsync(RoleNames.Member);
+
+        var createResponse = await SendAuthorizedAsync(HttpMethod.Post, "/invitations",
+            ownerTokens.AccessToken, new CreateInvitationRequest("list-check@test.local", memberRoleId));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var listRequest = new HttpRequestMessage(HttpMethod.Get, "/invitations");
+        listRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ownerTokens.AccessToken);
+        var listResponse = await _client.SendAsync(listRequest);
+
+        listResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var page = await listResponse.Content.ReadFromJsonAsync<PagedResult<InvitationResponse>>();
+        page!.Items.Should().Contain(i => i.Email == "list-check@test.local" && i.Status == "Pending");
+    }
+
+    [Fact]
+    public async Task ListInvitations_WithoutAuth_Returns401()
+    {
+        var response = await _client.GetAsync("/invitations");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
