@@ -147,6 +147,60 @@ public sealed class PatientFlowTests(ApiFactory factory)
         updated!.Status.Should().Be("Paused");
     }
 
+    [Fact]
+    public async Task ListTreatmentDetails_AfterCreate_ReturnsIt()
+    {
+        var client = await Client();
+        var patient = await CreatePatientAsync(client, "DetailsPatient");
+        var treatment = await CreateTreatmentAsync(client, patient.Id);
+
+        await client.PostAsJsonAsync($"/treatments/{treatment.Id}/details",
+            new CreateTreatmentDetailRequest("Sesión 1", "Progreso notable", null, DateTime.UtcNow));
+
+        var response = await client.GetAsync($"/treatments/{treatment.Id}/details");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var details = await response.Content.ReadFromJsonAsync<PagedResult<TreatmentDetailResponse>>();
+        details!.Items.Should().ContainSingle(d => d.Name == "Sesión 1");
+    }
+
+    [Fact]
+    public async Task ListTreatmentDetails_UnknownTreatment_ReturnsNotFound()
+    {
+        var client = await Client();
+
+        var response = await client.GetAsync($"/treatments/{Guid.NewGuid()}/details");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ListTreatmentComments_AfterCreate_ReturnsIt()
+    {
+        var client = await Client();
+        var patient = await CreatePatientAsync(client, "CommentsPatient");
+        var treatment = await CreateTreatmentAsync(client, patient.Id);
+
+        await client.PostAsJsonAsync($"/treatments/{treatment.Id}/comments",
+            new CreateTreatmentCommentRequest("Buen avance", CommentType.Medical));
+
+        var response = await client.GetAsync($"/treatments/{treatment.Id}/comments");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var comments = await response.Content.ReadFromJsonAsync<PagedResult<TreatmentCommentResponse>>();
+        comments!.Items.Should().ContainSingle(c => c.Body == "Buen avance");
+    }
+
+    [Fact]
+    public async Task ListTreatmentComments_UnknownTreatment_ReturnsNotFound()
+    {
+        var client = await Client();
+
+        var response = await client.GetAsync($"/treatments/{Guid.NewGuid()}/comments");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private static CreatePatientRequest ValidPatientRequest(string firstName, string lastName) =>

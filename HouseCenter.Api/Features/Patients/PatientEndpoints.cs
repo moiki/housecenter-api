@@ -116,6 +116,10 @@ public static class PatientEndpoints
         var group = app.MapGroup("/treatments/{treatmentId:guid}/details")
             .WithTags("TreatmentDetails").RequireAuthorization();
 
+        group.MapGet("/", async (Guid treatmentId, [AsParameters] PageQuery paging, IPatientService service, CancellationToken ct) =>
+                (await service.ListTreatmentDetailsAsync(treatmentId, paging, ct)).ToHttpResult())
+            .WithName("ListTreatmentDetails");
+
         group.MapPost("/", async (Guid treatmentId, CreateTreatmentDetailRequest request, IPatientService service, CancellationToken ct) =>
             {
                 var result = await service.CreateTreatmentDetailAsync(treatmentId, request, ct);
@@ -141,6 +145,10 @@ public static class PatientEndpoints
     {
         var group = app.MapGroup("/treatments/{treatmentId:guid}/comments")
             .WithTags("TreatmentComments").RequireAuthorization();
+
+        group.MapGet("/", async (Guid treatmentId, [AsParameters] PageQuery paging, IPatientService service, CancellationToken ct) =>
+                (await service.ListTreatmentCommentsAsync(treatmentId, paging, ct)).ToHttpResult())
+            .WithName("ListTreatmentComments");
 
         group.MapPost("/", async (Guid treatmentId, CreateTreatmentCommentRequest request,
                 IPatientService service, ClaimsPrincipal principal, CancellationToken ct) =>

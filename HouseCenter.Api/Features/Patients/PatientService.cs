@@ -29,11 +29,13 @@ public interface IPatientService
     Task<Result> DeactivateTreatmentAsync(Guid treatmentId, CancellationToken ct);
 
     // Treatment details
+    Task<Result<PagedResult<TreatmentDetailResponse>>> ListTreatmentDetailsAsync(Guid treatmentId, PageQuery paging, CancellationToken ct);
     Task<Result<TreatmentDetailResponse>> CreateTreatmentDetailAsync(Guid treatmentId, CreateTreatmentDetailRequest request, CancellationToken ct);
     Task<Result<TreatmentDetailResponse>> UpdateTreatmentDetailAsync(Guid detailId, UpdateTreatmentDetailRequest request, CancellationToken ct);
     Task<Result> DeactivateTreatmentDetailAsync(Guid detailId, CancellationToken ct);
 
     // Treatment comments
+    Task<Result<PagedResult<TreatmentCommentResponse>>> ListTreatmentCommentsAsync(Guid treatmentId, PageQuery paging, CancellationToken ct);
     Task<Result<TreatmentCommentResponse>> CreateTreatmentCommentAsync(Guid treatmentId, CreateTreatmentCommentRequest request, ClaimsPrincipal user, CancellationToken ct);
     Task<Result<TreatmentCommentResponse>> UpdateTreatmentCommentAsync(Guid commentId, UpdateTreatmentCommentRequest request, CancellationToken ct);
     Task<Result> DeactivateTreatmentCommentAsync(Guid commentId, CancellationToken ct);
@@ -327,6 +329,22 @@ public sealed class PatientService(
 
     // ─── Treatment details ───────────────────────────────────────────────────
 
+    public async Task<Result<PagedResult<TreatmentDetailResponse>>> ListTreatmentDetailsAsync(
+        Guid treatmentId, PageQuery paging, CancellationToken ct)
+    {
+        if (!await db.Treatments.AnyAsync(t => t.Id == treatmentId, ct))
+            return TreatmentNotFound;
+
+        var query = db.TreatmentDetails
+            .AsNoTracking()
+            .Where(d => d.TreatmentId == treatmentId)
+            .OrderByDescending(d => d.TreatmentDate)
+            .Select(d => new TreatmentDetailResponse(
+                d.Id, d.TreatmentId, d.Name, d.Description, d.Profile, d.TreatmentDate, d.IsActive));
+
+        return await query.ToPagedResultAsync(paging, ct);
+    }
+
     public async Task<Result<TreatmentDetailResponse>> CreateTreatmentDetailAsync(
         Guid treatmentId, CreateTreatmentDetailRequest request, CancellationToken ct)
     {
@@ -373,6 +391,22 @@ public sealed class PatientService(
     }
 
     // ─── Treatment comments ──────────────────────────────────────────────────
+
+    public async Task<Result<PagedResult<TreatmentCommentResponse>>> ListTreatmentCommentsAsync(
+        Guid treatmentId, PageQuery paging, CancellationToken ct)
+    {
+        if (!await db.Treatments.AnyAsync(t => t.Id == treatmentId, ct))
+            return TreatmentNotFound;
+
+        var query = db.TreatmentComments
+            .AsNoTracking()
+            .Where(c => c.TreatmentId == treatmentId)
+            .OrderByDescending(c => c.CreatedDate)
+            .Select(c => new TreatmentCommentResponse(
+                c.Id, c.TreatmentId, c.Body, c.Type.ToString(), c.Status.ToString(), c.UserId, c.IsActive));
+
+        return await query.ToPagedResultAsync(paging, ct);
+    }
 
     public async Task<Result<TreatmentCommentResponse>> CreateTreatmentCommentAsync(
         Guid treatmentId, CreateTreatmentCommentRequest request, ClaimsPrincipal principal, CancellationToken ct)
