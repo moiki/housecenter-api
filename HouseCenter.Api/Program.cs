@@ -103,13 +103,13 @@ try
     else
         builder.Services.AddSingleton<IPushSender, LoggingPushSender>();
 
-    // Database
-    var connectionString = builder.Configuration
-        .GetSection(DatabaseOptions.SectionName)
-        .GetValue<string>(nameof(DatabaseOptions.ConnectionString));
-
-    builder.Services.AddDbContextPool<HouseCenterDbContext>(options =>
-        options.UseNpgsql(connectionString));
+    // Database — resolved LAZILY via IOptions at pool-creation time (same reasoning as the
+    // JwtBearer setup below). Reading builder.Configuration into a local var here would bake
+    // in a snapshot taken before WebApplicationFactory's test-host config overrides are
+    // applied, silently pointing every test run at the real dev database instead of
+    // housecenter_test — which is exactly what was happening.
+    builder.Services.AddDbContextPool<HouseCenterDbContext>((serviceProvider, options) =>
+        options.UseNpgsql(serviceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString));
 
     // Authentication — validates the access token on every request carrying a Bearer header.
     // Configured LAZILY through DI (not a startup config snapshot) so it always sees the
@@ -180,7 +180,7 @@ try
     builder.Services.AddOpenApi();
     builder.Services.AddHealthChecks()
         .AddNpgSql(
-            connectionString ?? string.Empty,
+            sp => sp.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString,
             name: "postgres",
             tags: ["db", "ready"]);
     builder.Services.AddHostedService<DatabaseSeeder>();
