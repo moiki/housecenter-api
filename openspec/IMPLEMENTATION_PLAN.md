@@ -139,9 +139,14 @@ Once these three changes are complete, the platform has:
 - A medical communication channel (consultations)
 - Sponsor-safe reporting (reports)
 
-Natural next directions (not yet planned):
-- **Notifications** — email/push when a consultation receives a new message
-- **File uploads** — photos from field visits attached to sessions or consultation messages
+Delivered since then:
+- **Notifications** — see `openspec/changes/notifications/` — implemented, all 4 phases
+  (in-app, email, session reminders, push via FCM server-side)
+- **File uploads** — see `openspec/changes/file-uploads/` — Phase 1 (core + local-disk
+  storage) implemented; Phase 2 (S3 backend) not started
+- **Frontend** — `housecenter-web` (greenfield Vite/React/TS SPA, not `house-mui-v1`) — see
+  `openspec/changes/housecenter-web/`
+
+Still not yet planned:
 - **Patient anonymization** — GDPR-style controls for patient data export/deletion
 - **Mobile-friendly API** — response size optimization for low-bandwidth rural connections
-- **Frontend integration** — `house-mui-v1` React app consuming this API

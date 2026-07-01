@@ -4,7 +4,9 @@
 `notifications`
 
 ## Status
-`proposed`
+`implemented` (2026-06-12 — all 4 phases complete: in-app, email, session reminders, push
+(FCM, server-side; credentials deferred — external Firebase setup only, no code change
+needed). 82/82 tests green. Merged via PR #6.)
 
 ## Problem
 

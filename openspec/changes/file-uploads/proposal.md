@@ -4,7 +4,8 @@
 `file-uploads`
 
 ## Status
-`proposed`
+`implemented` (Phase 1 only — 2026-06-13: core + local-disk storage, all tasks T1–T5
+complete, full suite green, merged via PR #8. Phase 2 — S3 backend — remains not started.)
 
 ## Problem
 
