@@ -164,6 +164,11 @@ try
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
 
+    // Accept enum names ("Male"), not just ordinals, in JSON request bodies — the frontend's
+    // TS string-union types send names, and this was the only piece missing to match them.
+    builder.Services.ConfigureHttpJsonOptions(options =>
+        options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+
     // API versioning — URL segment strategy: /api/v1/clinics, /api/v2/clinics, etc.
     builder.Services.AddApiVersioning(options =>
     {

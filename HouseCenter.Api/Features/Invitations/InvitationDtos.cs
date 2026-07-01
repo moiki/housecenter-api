@@ -8,5 +8,5 @@ public sealed record InvitationResponse(
     Guid Id,
     string Email,
     Guid RoleId,
-    InvitationStatus Status,
+    string Status,
     DateTime CreatedDate);

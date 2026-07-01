@@ -106,5 +106,5 @@ public sealed class InvitationService(
     }
 
     private static InvitationResponse ToResponse(Invitation i) =>
-        new(i.Id, i.Email, i.RoleId, i.Status, i.CreatedDate);
+        new(i.Id, i.Email, i.RoleId, i.Status.ToString(), i.CreatedDate);
 }
