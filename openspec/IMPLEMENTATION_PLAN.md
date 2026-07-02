@@ -145,7 +145,8 @@ Delivered since then:
 - **File uploads** — see `openspec/changes/file-uploads/` — Phase 1 (core + local-disk
   storage) implemented; Phase 2 (S3 backend) not started
 - **Frontend** — `housecenter-web` (greenfield Vite/React/TS SPA, not `house-mui-v1`) — see
-  `openspec/changes/housecenter-web/`
+  `openspec/changes/housecenter-web/` — implemented (2026-07-02, T1–T15; UI kit ended up
+  being MUI v9, not Untitled UI)
 
 Still not yet planned:
 - **Patient anonymization** — GDPR-style controls for patient data export/deletion
