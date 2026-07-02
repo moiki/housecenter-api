@@ -8,4 +8,7 @@ public class SeedOptions
     public string OwnerPassword { get; set; } = string.Empty;
     public string OwnerFirstName { get; set; } = "System";
     public string OwnerLastName { get; set; } = "Owner";
+
+    /// <summary>Password for every user created by POST /seed (Development/Staging test data).</summary>
+    public string TestUserPassword { get; set; } = "Demo@123!";
 }

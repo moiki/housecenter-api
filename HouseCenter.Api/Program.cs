@@ -21,6 +21,7 @@ using HouseCenter.Api.Features.Patients;
 using HouseCenter.Api.Features.Patients.Sessions;
 using HouseCenter.Api.Features.Reports;
 using HouseCenter.Api.Features.Roles;
+using HouseCenter.Api.Features.Seeding;
 using HouseCenter.Api.Features.Users;
 using HouseCenter.Api.Features.WorkRoutes;
 using HouseCenter.Api.Options;
@@ -147,6 +148,8 @@ try
     builder.Services.AddScoped<ICollaboratorService, CollaboratorService>();
     builder.Services.AddScoped<IPatientService, PatientService>();
     builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+    // Resolved only by POST /seed, which is mapped in Development/Staging exclusively
+    builder.Services.AddScoped<TestDataSeeder>();
 
     // FluentValidation — discovers every AbstractValidator<T> in the assembly
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
@@ -256,6 +259,11 @@ try
     app.MapReportEndpoints();
     app.MapNotificationEndpoints();
     app.MapAttachmentEndpoints();
+
+    // Test data on demand — the route only exists in Development/Staging (404 in
+    // Production) and never runs at startup; DatabaseSeeder keeps seeding roles + owner.
+    if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+        app.MapSeedEndpoints();
 
     app.Run();
 }

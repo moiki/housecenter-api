@@ -181,8 +181,14 @@ Jwt:Secret / RefreshSecret / InvitationSecret / ResetSecret
 Email:Host / Port / UserName / Password / FromAddress
 App:FrontendUrl
 Seed:OwnerEmail / Seed:OwnerPassword
+Seed:TestUserPassword  # optional — password for POST /seed test users (default Demo@123!)
 Push:CredentialsJson   # Firebase service-account JSON; blank = push logs instead of sending (FCM off)
 ```
+
+**Test data:** `POST /seed` (Development/Staging only, AdministratorOrAbove) inserts an
+idempotent fixed dataset — 5 users (one per non-owner role, `*@housecenter.dev`),
+3 clinics, 3 collaborators, 6 patients. Never runs at startup; `DatabaseSeeder` only
+seeds roles + owner.
 
 Integration tests override these via `ApiFactory.ConfigureWebHost` (in-memory collection).
 Test DB: `housecenter_test` (recreated on each test run).
