@@ -3,8 +3,8 @@ artifact_store: openspec
 execution_mode: interactive
 delivery_strategy: ask-on-risk
 created: 2026-07-03
-phase: archive
-status: in_progress
+phase: archived
+status: complete
 completed_phases:
   - explore
   - propose
@@ -12,6 +12,7 @@ completed_phases:
   - tasks
   - apply
   - verify
+  - archive
 chain_strategy: stacked-to-main
 chain_slice: 4 of 4
 current_slice: null

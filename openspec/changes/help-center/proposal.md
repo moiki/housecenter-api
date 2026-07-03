@@ -4,7 +4,7 @@
 `help-center`
 
 ## Status
-`proposed` (2026-07-03)
+`implemented` (2026-07-03 — 4 chained PRs, 113/113 tests green, PASS WITH WARNINGS, all warnings closed in follow-up commit)
 
 ## Problem
 
