@@ -3,7 +3,7 @@ artifact_store: openspec
 execution_mode: interactive
 delivery_strategy: ask-on-risk
 created: 2026-07-03
-phase: verify
+phase: archive
 status: in_progress
 completed_phases:
   - explore
@@ -11,6 +11,7 @@ completed_phases:
   - spec
   - tasks
   - apply
+  - verify
 chain_strategy: stacked-to-main
 chain_slice: 4 of 4
 current_slice: null
@@ -19,6 +20,28 @@ phase2_status: complete
 phase3_status: complete
 phase4_status: complete
 notes: |
+  sdd-verify (2026-07-03): PASS WITH WARNINGS — 0 CRITICAL, 5 WARNING, 4 SUGGESTION.
+  Independently re-ran dotnet build (clean), dotnet test (113/113 passed, matches the
+  cumulative count claimed across all 4 apply phases), dotnet ef migrations
+  has-pending-model-changes (none), and coverlet coverage (94%+ average on changed files).
+  Confirmed both documented deviations (HelpAudience independent from PolicyNames;
+  HelpTopicResponse.Audience typed string matching the ConsultationResponse.Status
+  precedent) are accurate and consistent — no undocumented drift found. Confirmed exactly
+  5 routes in HelpEndpoints.cs match the spec API surface, 26/26 tasks checked off, git
+  log shows the 4 feat(help) commits + 2 setup commits, git status clean of anything
+  help-center-related (3 unrelated pre-existing uncommitted files for an Npgsql UTC
+  DateTime fix are out of scope, confirmed via diff). WARNINGS are all coverage-completeness
+  gaps proven by coverlet, not behavioral defects: CreateHelpTopic.cs's entire POST-success
+  path (201, lines 36-52) has zero test coverage — no CreateTopic_* test ever sends a valid
+  non-duplicate payload as Administrator; UpdateHelpTopic.cs and DeleteHelpTopic.cs each have
+  their "id not found" branch at 50% (1/2) branch coverage, i.e. untested; R5's
+  soft-deleted-duplicate 409 message content is unasserted (status code only); R7's seeder
+  test only proves the "already fully seeded" branch, not the scenario's explicit
+  "3-of-5 present, 2 backfilled" partial case; PUT has no dedicated non-admin-403 test
+  (Create/Delete do). Full detail in verify-report.md. Recommendation: proceed to
+  sdd-archive; suggested non-blocking follow-up is a small test-only PR closing the 5
+  WARNING gaps above.
+
   Phase 4 (PR4 slice, FINAL) implemented via strict TDD (RED-GREEN-REFACTOR against a new
   DatabaseSeederTests.cs, no pre-existing seeder tests to extend): added
   DatabaseSeeder.SeedHelpTopicsAsync (insert-if-missing on TopicKey via IgnoreQueryFilters(),

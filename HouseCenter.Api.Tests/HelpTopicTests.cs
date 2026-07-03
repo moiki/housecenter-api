@@ -114,6 +114,31 @@ public sealed class HelpTopicTests(ApiFactory factory)
         var response = await adminClient.PostAsJsonAsync("/help/topics", request);
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        // R5 requires the 409 to distinguish "exists but unpublished" from a plain active
+        // duplicate — assert the actual message text (CreateHelpTopic.cs), not just the code.
+        var body = await response.Content.ReadAsStringAsync();
+        body.Should().Contain("A help topic with this key exists but is unpublished");
+    }
+
+    [Fact]
+    public async Task CreateTopic_AsAdmin_Returns201WithBody()
+    {
+        var (adminClient, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+        var request = ValidCreateRequest();
+
+        var response = await adminClient.PostAsJsonAsync("/help/topics", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        response.Headers.Location.Should().NotBeNull();
+        var topic = await response.Content.ReadFromJsonAsync<HelpTopicResponse>();
+        topic.Should().NotBeNull();
+        topic!.TopicKey.Should().Be(request.TopicKey);
+        topic.Title.Should().Be(request.Title);
+        topic.Summary.Should().Be(request.Summary);
+        topic.Body.Should().Be(request.Body);
+        topic.Audience.Should().Be(nameof(HelpAudience.All));
+        topic.Category.Should().Be(request.Category);
+        topic.DisplayOrder.Should().Be(request.DisplayOrder);
     }
 
     [Fact]
@@ -157,6 +182,41 @@ public sealed class HelpTopicTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task UpdateTopic_AsMember_Returns403()
+    {
+        var (id, _) = await SeedTopicWithIdAsync(HelpAudience.All);
+        var (memberClient, _) = await LoginUserWithRoleAsync(RoleNames.Member);
+        var request = new UpdateHelpTopicRequest(
+            Title: "Updated Title",
+            Summary: "Updated summary",
+            Body: "Updated body",
+            Audience: HelpAudience.Staff,
+            Category: "Updated",
+            DisplayOrder: 5);
+
+        var response = await memberClient.PutAsJsonAsync($"/help/topics/{id}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task UpdateTopic_NotFound_Returns404()
+    {
+        var (adminClient, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+        var request = new UpdateHelpTopicRequest(
+            Title: "Title",
+            Summary: "Summary",
+            Body: "Body",
+            Audience: HelpAudience.All,
+            Category: "Category",
+            DisplayOrder: 0);
+
+        var response = await adminClient.PutAsJsonAsync($"/help/topics/{Guid.NewGuid()}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task DeleteTopic_AsMember_Returns403()
     {
         var (id, _) = await SeedTopicWithIdAsync(HelpAudience.All);
@@ -165,6 +225,16 @@ public sealed class HelpTopicTests(ApiFactory factory)
         var response = await memberClient.DeleteAsync($"/help/topics/{id}");
 
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteTopic_NotFound_Returns404()
+    {
+        var (adminClient, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+
+        var response = await adminClient.DeleteAsync($"/help/topics/{Guid.NewGuid()}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
