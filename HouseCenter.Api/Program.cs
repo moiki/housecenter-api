@@ -15,6 +15,7 @@ using HouseCenter.Api.Features.Auth;
 using HouseCenter.Api.Features.Clinics;
 using HouseCenter.Api.Features.Collaborators;
 using HouseCenter.Api.Features.Consultations;
+using HouseCenter.Api.Features.Help;
 using HouseCenter.Api.Features.Invitations;
 using HouseCenter.Api.Features.Notifications;
 using HouseCenter.Api.Features.Patients;
@@ -259,6 +260,7 @@ try
     app.MapReportEndpoints();
     app.MapNotificationEndpoints();
     app.MapAttachmentEndpoints();
+    app.MapHelpEndpoints();
 
     // Test data on demand — the route only exists in Development/Staging (404 in
     // Production) and never runs at startup; DatabaseSeeder keeps seeding roles + owner.

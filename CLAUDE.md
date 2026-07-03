@@ -124,6 +124,7 @@ A patient can have both types. Treatments are typed accordingly.
 | AttentionSessions | **CQRS** | New, clean slate — CQRS by default |
 | MedicalConsultations | **CQRS** | New, clean slate |
 | Reports | **CQRS** | Read-only query handlers, role-based projection |
+| HelpTopics | **CQRS** | New, clean slate |
 
 ---
 
