@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using HouseCenter.Api.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace HouseCenter.Api.Data;
 
@@ -32,17 +33,39 @@ public class HouseCenterDbContext(DbContextOptions<HouseCenterDbContext> options
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(HouseCenterDbContext).Assembly);
 
-        // Global soft-delete filter: every query on a BaseEntity subtype automatically
-        // excludes inactive records. Use .IgnoreQueryFilters() to bypass when needed.
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
+            // Global soft-delete filter: every query on a BaseEntity subtype automatically
+            // excludes inactive records. Use .IgnoreQueryFilters() to bypass when needed.
             if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
             {
                 modelBuilder.Entity(entityType.ClrType)
                     .HasQueryFilter(BuildIsActiveFilter(entityType.ClrType));
             }
+
+            // Npgsql requires DateTime.Kind == Utc for "timestamp with time zone" columns.
+            // Client JSON payloads without a "Z"/offset deserialize as Kind=Unspecified, which
+            // throws at SaveChanges. Tag every DateTime property as Utc globally instead of
+            // relying on each request handler to do it — new entities get this for free.
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.GetValueConverter() is not null) continue;
+
+                if (property.ClrType == typeof(DateTime))
+                    property.SetValueConverter(UtcDateTimeConverter);
+                else if (property.ClrType == typeof(DateTime?))
+                    property.SetValueConverter(UtcNullableDateTimeConverter);
+            }
         }
     }
+
+    private static readonly ValueConverter<DateTime, DateTime> UtcDateTimeConverter = new(
+        v => v.Kind == DateTimeKind.Local ? v.ToUniversalTime() : DateTime.SpecifyKind(v, DateTimeKind.Utc),
+        v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+
+    private static readonly ValueConverter<DateTime?, DateTime?> UtcNullableDateTimeConverter = new(
+        v => v.HasValue ? (v.Value.Kind == DateTimeKind.Local ? v.Value.ToUniversalTime() : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc)) : v,
+        v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v);
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

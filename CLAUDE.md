@@ -143,6 +143,12 @@ A patient can have both types. Treatments are typed accordingly.
 - **DbContext is not thread-safe**: `Task.WhenAll` over multiple hot queries on one scoped
   context races and throws "a second operation was started on this context instance".
   Await queries sequentially; true parallelism needs one context per query (`IDbContextFactory`).
+- **Npgsql requires `DateTime.Kind=Utc`**: client JSON without a `Z`/offset (e.g.
+  `"2024-01-15T00:00:00"`) deserializes as `Kind=Unspecified`, which throws
+  `Cannot write DateTime with Kind=Unspecified to PostgreSQL type 'timestamp with time zone'`
+  at `SaveChangesAsync`. Fixed globally via a `ValueConverter` in
+  `HouseCenterDbContext.OnModelCreating` that tags every `DateTime`/`DateTime?` property as
+  UTC — new entities get this for free, no per-property `SpecifyKind` needed.
 
 ---
 

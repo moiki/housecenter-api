@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text;
 using FluentAssertions;
 using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Domain.Entities;
@@ -129,6 +130,25 @@ public sealed class PatientFlowTests(ApiFactory factory)
         var treatment = await response.Content.ReadFromJsonAsync<TreatmentResponse>();
         treatment!.PatientId.Should().Be(patient.Id);
         treatment.Status.Should().Be("Active");
+    }
+
+    [Fact]
+    public async Task CreateTreatment_WithOffsetLessDateStrings_Returns201()
+    {
+        // Regression test: a real client (Postman, a browser Date without toISOString)
+        // can send "2024-01-15T00:00:00" with no "Z"/offset. System.Text.Json deserializes
+        // that as DateTime.Kind=Unspecified, which Npgsql rejects for "timestamp with time
+        // zone" columns unless HouseCenterDbContext's global UTC converter normalizes it.
+        var client = await Client();
+        var patient = await CreatePatientAsync(client, "OffsetLessDatesPatient");
+
+        var content = new StringContent(
+            """{"name":"Fisioterapia","description":"Recuperación motora","profile":null,"startDate":"2024-01-15T00:00:00","endDate":"2024-04-15T00:00:00"}""",
+            Encoding.UTF8, "application/json");
+
+        var response = await client.PostAsync($"/patients/{patient.Id}/treatments", content);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
     }
 
     [Fact]
