@@ -1,0 +1,43 @@
+change: help-center
+artifact_store: openspec
+execution_mode: interactive
+delivery_strategy: ask-on-risk
+created: 2026-07-03
+phase: apply
+status: in_progress
+completed_phases:
+  - explore
+  - propose
+  - spec
+  - tasks
+chain_strategy: stacked-to-main
+chain_slice: 1 of 4
+current_slice: "Phase 2 — By-Key Read + Create (PR2)"
+phase1_status: complete
+notes: |
+  Phase 1 (PR1 slice) implemented via strict TDD (RED-GREEN-REFACTOR against
+  HelpTopicTests.cs): HelpTopic entity, HelpAudience enum, HelpTopicConfiguration,
+  DbSet<HelpTopic> + AddHelpTopics migration (applied), ListHelpTopics query+handler
+  (in-memory audience-ceiling computation + IN-set membership filter — avoids the
+  HasConversion<string>() "<=" alphabetical-comparison gotcha), HelpEndpoints.cs
+  (GET /help/topics only), Program.cs wiring, CLAUDE.md module table row. 3/3 new
+  tests pass; full suite 103/103 (100 pre-existing + 3 new), zero regressions.
+  `dotnet ef migrations has-pending-model-changes` reports none. Phases 2-4 (by-key
+  read, create, update, delete, seeder/content) remain untouched — next PR slice.
+  tasks.md forecasts High 400-line budget risk (~1,050-1,150 hand-written lines across
+  the full in-scope backend work) and recommends 4 chained PRs (one per phase: foundation
+  + list, by-key read + create, update + delete, starter seed). User confirmed via
+  ask-on-risk guard: chained PRs, stacked-to-main strategy (each PR merges to main
+  independently as it's ready, no shared feature branch). sdd-apply proceeds one phase
+  (=one PR slice) at a time, starting with Phase 1.
+  Execution mode and delivery strategy defaulted (Interactive / ask-on-risk) —
+  the user did not respond to the mode-selection question before starting.
+  Both are the documented recommended defaults and can be changed anytime.
+  Exploration confirmed the pre-existing plan (HouseCenter.Api/docs/help-center-plan.md)
+  against the live codebase with high confidence — see exploration.md for details.
+  Recommendation: scope this change to Phase 1+2 (backend module + seed content) only;
+  treat frontend integration (housecenter-web) as a separate, dependent follow-up change.
+  Design phase intentionally skipped: this is Clinics-shaped CRUD (entity + CQRS module +
+  one role-based read filter) with no new architectural pattern, matching the precedent of
+  attention-sessions/medical-consultations/sponsor-reports, none of which have a design.md.
+  spec.md was written directly from proposal.md.
