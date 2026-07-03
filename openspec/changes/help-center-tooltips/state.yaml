@@ -1,0 +1,172 @@
+change: help-center-tooltips
+artifact_store: openspec
+execution_mode: interactive
+delivery_strategy: ask-on-risk
+created: 2026-07-03
+phase: archived
+status: complete
+current_slice: null
+phase1_status: complete
+phase2_status: complete
+completed_phases:
+  - explore
+  - propose
+  - spec
+  - tasks
+  - apply
+  - verify
+  - archive
+notes: |
+  sdd-verify (2026-07-03): PASS WITH WARNINGS -- 0 CRITICAL, 1 WARNING, 2 SUGGESTION.
+  Verified via pnpm build (clean) + pnpm lint (clean, 1 pre-existing unrelated warning) plus
+  a full code trace of R1-R8 in housecenter-web (no automated test runner exists in that repo).
+  Confirmed the orchestrator's mid-flight PageHeader.tsx flex-row fix is in place and correct;
+  systematically checked all 4 anchor insertion points (SessionsTab.tsx x3, TreatmentsTab.tsx x1)
+  for the same block-stacking bug class -- none found, all 4 sit inside display:flex parents.
+  Confirmed PR1 committed (4ebaa6d) and PR2 files present but uncommitted in housecenter-web,
+  as expected. R1.3/R1.4 (hover/focus/tap trigger, stays-open-into-content) are MUI-native
+  interactive behaviors flagged as "requires human browser verification", not failures --
+  confirmed no code disables MUI Tooltip's default interactive/trigger behavior. The single
+  WARNING is a forward-looking process note (no code-level guardrail ties a future
+  assign-doctor UI build to remembering the patients.assign-doctor anchor), already tracked
+  in the proposal's Out of scope section -- not a defect in this diff. Full report at
+  openspec/changes/help-center-tooltips/verify-report.md. Ready for sdd-archive.
+
+  --
+  sdd-apply (2026-07-03, batch 2): Phase 2 (Workstream B, PR2, tasks 2.1-2.6) implemented in
+  housecenter-web. Touched: src/components/shared/PageHeader.tsx (+optional helpKey?: string
+  prop, renders <HelpTooltip topicKey={helpKey} /> right after the title Typography inside the
+  left Box, guarded by `helpKey &&` so omission is byte-identical to before — confirmed by
+  `pnpm build` type-checking clean against all 15 real call sites, 13 pre-existing + the 2 new
+  Phase-1 help pages, none passing helpKey), src/pages/patients/SessionsTab.tsx (imported
+  HelpTooltip; 3 anchors — `sessions.recording` next to the "New Session" button in the tab
+  header (the flow's real entry point, since SlideOver's title prop is a plain string and can't
+  host a tooltip), `sessions.clinic-or-route` beside the locationMode RHFSelect inside
+  CreateSessionForm at the confirmed line, `sessions.status-lifecycle` beside the status
+  RHFSelect inside StatusPatchForm's grid at the confirmed line — both RHFSelect anchors wrapped
+  in a flex Box with the select given `sx={{ flex: 1 }}` so the tooltip icon sits beside the
+  field without breaking its existing fullWidth/grid sizing), src/pages/patients/
+  TreatmentsTab.tsx (imported HelpTooltip; anchored `treatments.status-lifecycle` right after
+  the "Status" label Typography and before the STATUS_ITEMS Chip Stack inside
+  ExpandedTreatment, reusing the row's existing flexWrap gap). Task 2.6 (no-code verification):
+  grepped PatientProfilePage.tsx and patients.api.ts for "assign" (case-insensitive) — no match;
+  grepped the whole housecenter-web src tree for the literal string "patients.assign-doctor" —
+  no match anywhere. Confirms R8.3: no assign-doctor control/endpoint exists and no HelpTooltip
+  for that key was added. `pnpm build` (tsc -b && vite build) clean — 0 errors. `pnpm lint`
+  clean — 0 errors, the same 1 pre-existing unrelated warning in AuthBootstrap.tsx (missing
+  useEffect deps) noted in the Phase 1 apply-progress, untouched by this batch. Diff stat for
+  the 3 touched files: PageHeader.tsx +5/-1, SessionsTab.tsx +21/-5, TreatmentsTab.tsx +2/-0 —
+  in line with the tasks.md forecast (~20-26 hand-written lines; git's raw +/- count is close
+  and slightly higher only because of multi-line JSX wrapping, not scope creep). All 16 tasks
+  in tasks.md (10 Phase 1 + 6 Phase 2) are now [x]. No commits created in housecenter-web — its
+  working tree is left with these changes plus the still-uncommitted Phase 1 changes and the
+  pre-existing unrelated doc-backport changes (.claude/skills/add-feature-slice/SKILL.md,
+  .claude/skills/review-conventions/SKILL.md, CLAUDE.md) for the user to review/commit
+  separately. Still outstanding: the full manual/browser verification checklists in tasks.md's
+  "PR1 done when" and "PR2 done when" sections (both PRs) — no automated test runner exists in
+  housecenter-web, so hover/focus/tap tooltip behavior, the 4 anchors rendering in their real
+  page contexts, and the PageHeader spot-check across 2-3 existing consumers must be confirmed
+  by the user in an actual browser. Ready for sdd-verify.
+
+  --
+  sdd-apply (2026-07-03, batch 1): Phase 1 (Workstream A, PR1, tasks 1.1-1.10) implemented in
+  housecenter-web. New files: src/types/help.types.ts, src/api/modules/help.api.ts,
+  src/hooks/help/useHelpTopics.ts, src/components/shared/HelpTooltip.tsx,
+  src/pages/help/HelpIndexPage.tsx, src/pages/help/HelpTopicPage.tsx. Touched:
+  package.json (+markdown-to-jsx dep, +pnpm-lock.yaml), src/App.tsx (2 routes, all-roles
+  group, no RequireRole), src/lib/constants.ts (+1 NAV_ITEMS entry), src/components/shared/
+  Sidebar.tsx (+HelpOutlineOutlined import/NAV_ICONS entry, +'/help' in CORE_PATHS).
+  `pnpm build` and `pnpm lint` both clean (build: 0 errors; lint: 0 errors, 1 pre-existing
+  unrelated warning in AuthBootstrap.tsx). Confirmed MUI v9 ground truth per the proposal's
+  warning: used @mui/material (Tooltip/IconButton/Box/Link/List/etc.) and
+  @mui/icons-material's HelpOutlineOutlined throughout, onClick-based, no
+  @/components/base/* or onPress found anywhere in the new code. One MUI-v9-specific
+  correction found during implementation not called out in tasks.md: ListItemText's
+  `primaryTypographyProps`/`secondaryTypographyProps` props were removed in this MUI
+  major version — used `slotProps={{ primary, secondary }}` instead in HelpIndexPage.
+  "Leer más" CTA text rendered as "Leer más ›" per tasks.md's exact literal (proposal.md's
+  contract section had written "Leer más →" with a different arrow glyph — tasks.md's
+  version was treated as authoritative since it's the more specific/downstream artifact).
+  Self-verified HelpTooltip.tsx against spec Scenarios A-G before finishing: default
+  IconButton anchor (A), children override (B), hover/focus/tap via MUI Tooltip's built-in
+  behavior (C), `disableInteractive={false}` for stays-open-into-content (D), Link
+  client-side nav to /help/{topicKey} (E), returns null with no reserved space for an
+  unresolved topicKey (F), returns null while the shared useHelpTopics() list is
+  loading/erroring (G). Not yet executed: the manual/browser verification checklist in
+  tasks.md's "PR1 done when" section (grouping/ordering across roles, markdown rendering,
+  404 fallback, auth/role redirects, real hover/focus/tap/interactive-tooltip behavior in
+  an actual browser) — flagged for the user, no automated test runner exists in
+  housecenter-web. Phase 2 (Workstream B, PR2, tasks 2.1-2.6 — PageHeader helpKey prop +
+  inline anchors in SessionsTab/TreatmentsTab) intentionally NOT started, out of this
+  batch's scope per the assigning instructions. No commits created — housecenter-web
+  working tree left with these changes uncommitted for the user to review/commit
+  separately. Pre-existing uncommitted changes in housecenter-web (.claude/skills/
+  add-feature-slice/SKILL.md, .claude/skills/review-conventions/SKILL.md, CLAUDE.md — the
+  MUI-v9 doc backport mentioned in the assigning instructions) were left untouched.
+
+  --
+  sdd-tasks (2026-07-03): wrote tasks.md — 2 phases (Workstream A = PR1, Workstream B = PR2),
+  16 tasks total (10 in Phase 1, 6 in Phase 2). Review Workload Forecast: ~300-335 hand-written
+  lines total across 13 distinct files (6 new, 7 touched); 400-line budget risk Low; chained
+  PRs NOT recommended (unlike help-center's 4-way chain) — both PRs comfortably fit under
+  budget individually. Decision needed before apply: No. Kept A and B as 2 separate PRs per
+  the proposal's explicit instruction (different risk shapes: greenfield vs. touching live
+  pages), with a plain sequencing dependency (B imports HelpTooltip/helpKeys from A) rather
+  than a budget-driven chain. Corrected one proposal detail against the real repo: help.types.ts
+  belongs in src/types/ (matching report.types.ts, patient.types.ts, session.types.ts), not
+  colocated in src/api/modules/ as the proposal's affected-files table suggested; also moved
+  HelpTooltipProps to be defined inline in HelpTooltip.tsx (matching PageHeader.tsx's local
+  Props convention) rather than in the types file. Confirmed Workstream B's fan-out risk is
+  real in shape but narrow in this change's final scope: only 3 touched files across 2 feature
+  areas (shared PageHeader + patient Sessions/Treatments tabs), not the ~7-10 files floated
+  during exploration, because R8.3 excludes patients.assign-doctor (no anchor target exists).
+  Each phase's "done when" line pairs pnpm build/lint with explicit manual/browser verification
+  bullets tied to spec scenarios, since housecenter-web has no automated test runner. Ready for
+  sdd-apply, starting with Phase 1 (PR1, Workstream A).
+
+  Design intentionally skipped, same reasoning as help-center: no new architecture,
+  full reuse of the existing four-layer slice + UI-kit (MUI v9) patterns already
+  established in housecenter-web. spec.md written at the change root (flat file),
+  matching this repo's actual precedent (help-center/spec.md, housecenter-web/spec.md)
+  rather than the generic specs/{domain}/spec.md nesting.
+
+  Frontend integration deferred from the help-center proposal's "Out of scope" section
+  (Phase 3 of HouseCenter.Api/docs/help-center-plan.md §6). Named help-center-tooltips
+  instead of reusing "housecenter-web" because that name is already an existing, separately
+  implemented SDD change (the base frontend app scaffold, openspec/changes/housecenter-web/).
+
+  This change spans TWO repositories:
+  - SDD artifacts (this folder) live in HouseCenter/openspec/, matching the precedent that
+    housecenter-web's own SDD docs live here too even though its code lives elsewhere.
+  - Implementation code lands in the sibling repo at
+    /Users/moisesreyes/Documents/growthoptix/personal/hoh-project-net/housecenter-web/
+    (its own separate git repository, own CLAUDE.md, own .claude/skills/: add-api-call,
+    add-feature-slice, review-conventions). Every sub-agent must be told this explicitly —
+    two different repo roots, two different git histories.
+
+  housecenter-web confirmed stack (exploration corrected the initial assumptions below):
+  React 19.2.6 (not 18) + TS + Vite, TanStack Query v5.101, React Router v7.17.
+  UI KIT IS MUI v9 — housecenter-web's own CLAUDE.md and its 3 skills (add-feature-slice,
+  add-api-call, review-conventions) are STALE on this point: they describe an abandoned
+  Untitled UI + React Aria (@/components/base/*, onPress) architecture that was migrated to
+  MUI v9 (documented as a deviation in housecenter-web's own proposal.md Status line, never
+  backported into its own docs/skills). Ground truth is the real code: PatientsPage.tsx,
+  ClinicsPage.tsx, PageHeader.tsx, Sidebar.tsx, NotificationBell.tsx — all plain @mui/material
+  with onClick. Everything else in those 3 skills (four-layer pattern, @/ alias, named
+  exports, query-key factory, RBAC guards, no test runner) IS still accurate.
+  Sidebar nav wiring is a 3-file touch (constants.ts NAV_ITEMS + Sidebar.tsx bucket array
+  CORE_PATHS/etc. + Sidebar.tsx NAV_ICONS map), not a 1-line NAV_ITEMS push — items outside
+  a bucket array silently don't render. Icon.tsx's paths map is dead legacy code (1 consumer);
+  use @mui/icons-material's HelpOutlineOutlined instead. Base API client is src/api/client.ts.
+  Backend HelpTopic.Body is already-seeded real Markdown (not HTML) — a markdown renderer is
+  required; evaluate markdown-to-jsx as a lighter alternative to react-markdown in propose.
+  No test runner in this frontend — verification is `pnpm build` + `pnpm lint` only.
+  PageHeader.tsx safe to extend with an additive helpKey? prop (13 consumers, closed Props
+  interface, none break). Reference CRUD slices: patients (paged) and clinics (non-paged).
+  This change doesn't fit add-feature-slice's assumed shape cleanly — scope as two
+  workstreams: A) conventional read-only slice (types/api/hook/pages/route/nav) and
+  B) cross-cutting HelpTooltip wired into ~7-10 unrelated existing files (wide file-count
+  fan-out at low line-count — a different Review Workload risk shape than usual).
+
+  Execution mode / artifact store / delivery strategy were already established and cached
+  earlier this session during the help-center change — not re-asked.

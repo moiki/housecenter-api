@@ -149,8 +149,9 @@ Delivered since then:
   being MUI v9, not Untitled UI)
 - **Help center backend** — see `openspec/changes/help-center/` — implemented (2026-07-03,
   4 chained PRs: `HelpTopic` CRUD module + role-filtered reads + a 5-topic Spanish starter
-  seed via `DatabaseSeeder`); frontend surfacing (tooltips/`/help` pages) is a separate,
-  dependent follow-up against `housecenter-web`
+  seed via `DatabaseSeeder`)
+- **Help center frontend** — see `openspec/changes/help-center-tooltips/` — implemented (2026-07-03,
+  2 PRs in housecenter-web: HelpTooltip component, `/help` index+detail pages, sidebar entry, and 4 inline anchors on seeded topics; commits 4ebaa6d, 41c4d0c). Interactive tooltip behavior (R1.3/R1.4) still needs human browser verification before merging — not blocking
 
 Still not yet planned:
 - **Patient anonymization** — GDPR-style controls for patient data export/deletion
