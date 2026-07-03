@@ -11,10 +11,32 @@ completed_phases:
   - spec
   - tasks
 chain_strategy: stacked-to-main
-chain_slice: 1 of 4
-current_slice: "Phase 2 — By-Key Read + Create (PR2)"
+chain_slice: 2 of 4
+current_slice: "Phase 3 — Update + Delete (PR3)"
 phase1_status: complete
+phase2_status: complete
 notes: |
+  Phase 2 (PR2 slice) implemented via strict TDD (RED-GREEN-REFACTOR against
+  HelpTopicTests.cs, 3 pre-existing tests as safety net): extended HelpTopicDtos.cs with
+  HelpTopicResponse (Audience typed as string, not HelpAudience — matches the codebase
+  convention for enum-bearing response DTOs seen in ConsultationResponse.Status, since the
+  client's default JSON deserializer lacks the server's JsonStringEnumConverter) and
+  CreateHelpTopicRequest; GetHelpTopic.cs query+handler (audience-gated, 404 on both
+  missing and out-of-audience so existence is never leaked); GET /help/topics/{topicKey}
+  route; HelpTopicValidators.cs with CreateHelpTopicRequestValidator (TopicKey regex/
+  maxlength, Title/Summary/Body/Category maxlengths, Audience IsInEnum, DisplayOrder >= 0);
+  CreateHelpTopic.cs command+handler (duplicate-key check via IgnoreQueryFilters() covering
+  both active and soft-deleted rows, with distinct Conflict messages for each case); POST
+  /help/topics route gated AdministratorOrAbove + WithValidation<CreateHelpTopicRequest>().
+  Refactored the audience-ceiling ladder (previously duplicated inline in
+  ListHelpTopicsHandler) into a shared internal HelpAudienceLadder.CeilingFor() helper used
+  by both ListHelpTopicsHandler and GetHelpTopicHandler — eliminates duplication introduced
+  by this phase's read handler needing the same ladder logic as PR1's list handler.
+  6/6 new tests pass; full suite 109/109 (103 baseline + 6 new), zero regressions.
+  `dotnet ef migrations has-pending-model-changes` reports none (no entity shape change,
+  endpoints/handlers only, as expected for this phase). Phases 3-4 (update, delete, seeder/
+  content) remain untouched — next PR slice.
+
   Phase 1 (PR1 slice) implemented via strict TDD (RED-GREEN-REFACTOR against
   HelpTopicTests.cs): HelpTopic entity, HelpAudience enum, HelpTopicConfiguration,
   DbSet<HelpTopic> + AddHelpTopics migration (applied), ListHelpTopics query+handler

@@ -42,13 +42,13 @@ comfortably under budget on its own).
 **PR1 done when:** `dotnet build` clean, migration applies, 3 tests green.
 
 ## Phase 2: By-Key Read + Create — PR2 (~310 lines)
-- [ ] 2.1 Extend `HelpTopicDtos.cs` — `HelpTopicResponse` (full, incl. Body), `CreateHelpTopicRequest`
-- [ ] 2.2 `Features/Help/GetHelpTopic.cs` — query+handler: by TopicKey, audience-gated → 404 on mismatch or missing (R3)
-- [ ] 2.3 Add `GET /help/topics/{topicKey}` route to `HelpEndpoints.cs`
-- [ ] 2.4 `Features/Help/HelpTopicValidators.cs` — `CreateHelpTopicRequestValidator` (key regex, max lengths, IsInEnum — R1)
-- [ ] 2.5 `Features/Help/CreateHelpTopic.cs` — command+handler: dup-key check via `IgnoreQueryFilters()` → 409 on active or soft-deleted match (R5)
-- [ ] 2.6 Add `POST /help/topics` route, `PolicyNames.AdministratorOrAbove`, `.WithValidation<CreateHelpTopicRequest>()` (R4)
-- [ ] 2.7 Tests: `GetTopic_OutsideAudience_Returns404`, `GetTopic_WithinAudience_Returns200WithBody`, `CreateTopic_AsMember_Returns403`, `CreateTopic_DuplicateActiveKey_Returns409`, `CreateTopic_DuplicateSoftDeletedKey_Returns409`, `CreateTopic_InvalidKeyFormat_Returns400`
+- [x] 2.1 Extend `HelpTopicDtos.cs` — `HelpTopicResponse` (full, incl. Body), `CreateHelpTopicRequest`
+- [x] 2.2 `Features/Help/GetHelpTopic.cs` — query+handler: by TopicKey, audience-gated → 404 on mismatch or missing (R3)
+- [x] 2.3 Add `GET /help/topics/{topicKey}` route to `HelpEndpoints.cs`
+- [x] 2.4 `Features/Help/HelpTopicValidators.cs` — `CreateHelpTopicRequestValidator` (key regex, max lengths, IsInEnum — R1)
+- [x] 2.5 `Features/Help/CreateHelpTopic.cs` — command+handler: dup-key check via `IgnoreQueryFilters()` → 409 on active or soft-deleted match (R5)
+- [x] 2.6 Add `POST /help/topics` route, `PolicyNames.AdministratorOrAbove`, `.WithValidation<CreateHelpTopicRequest>()` (R4)
+- [x] 2.7 Tests: `GetTopic_OutsideAudience_Returns404`, `GetTopic_WithinAudience_Returns200WithBody`, `CreateTopic_AsMember_Returns403`, `CreateTopic_DuplicateActiveKey_Returns409`, `CreateTopic_DuplicateSoftDeletedKey_Returns409`, `CreateTopic_InvalidKeyFormat_Returns400`
 
 **PR2 done when:** `dotnet build` clean, 6 new + 3 prior tests green.
 

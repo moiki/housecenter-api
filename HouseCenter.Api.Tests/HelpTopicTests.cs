@@ -55,6 +55,78 @@ public sealed class HelpTopicTests(ApiFactory factory)
         topics.Select(t => t.TopicKey).Should().NotContain(adminKey);
     }
 
+    [Fact]
+    public async Task GetTopic_OutsideAudience_Returns404()
+    {
+        var staffKey = await SeedTopicAsync(HelpAudience.Staff);
+        var (sponsorClient, _) = await LoginUserWithRoleAsync(RoleNames.Sponsor);
+
+        var response = await sponsorClient.GetAsync($"/help/topics/{staffKey}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetTopic_WithinAudience_Returns200WithBody()
+    {
+        var allKey = await SeedTopicAsync(HelpAudience.All);
+        var (sponsorClient, _) = await LoginUserWithRoleAsync(RoleNames.Sponsor);
+
+        var response = await sponsorClient.GetAsync($"/help/topics/{allKey}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var topic = await response.Content.ReadFromJsonAsync<HelpTopicResponse>();
+        topic.Should().NotBeNull();
+        topic!.TopicKey.Should().Be(allKey);
+        topic.Body.Should().Be("Test body");
+    }
+
+    [Fact]
+    public async Task CreateTopic_AsMember_Returns403()
+    {
+        var (memberClient, _) = await LoginUserWithRoleAsync(RoleNames.Member);
+        var request = ValidCreateRequest();
+
+        var response = await memberClient.PostAsJsonAsync("/help/topics", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task CreateTopic_DuplicateActiveKey_Returns409()
+    {
+        var activeKey = await SeedTopicAsync(HelpAudience.All);
+        var (adminClient, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+        var request = ValidCreateRequest() with { TopicKey = activeKey };
+
+        var response = await adminClient.PostAsJsonAsync("/help/topics", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task CreateTopic_DuplicateSoftDeletedKey_Returns409()
+    {
+        var softDeletedKey = await SeedSoftDeletedTopicAsync();
+        var (adminClient, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+        var request = ValidCreateRequest() with { TopicKey = softDeletedKey };
+
+        var response = await adminClient.PostAsJsonAsync("/help/topics", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task CreateTopic_InvalidKeyFormat_Returns400()
+    {
+        var (adminClient, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+        var request = ValidCreateRequest() with { TopicKey = "Not A Valid Key!" };
+
+        var response = await adminClient.PostAsJsonAsync("/help/topics", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private async Task<string> SeedTopicAsync(HelpAudience audience)
@@ -76,6 +148,36 @@ public sealed class HelpTopicTests(ApiFactory factory)
         await db.SaveChangesAsync();
         return topicKey;
     }
+
+    private async Task<string> SeedSoftDeletedTopicAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+
+        var topicKey = $"test.topic-{Guid.NewGuid():N}";
+        db.HelpTopics.Add(new HelpTopic
+        {
+            TopicKey = topicKey,
+            Title = "Test Topic",
+            Summary = "Test summary",
+            Body = "Test body",
+            Audience = HelpAudience.All,
+            Category = "Test",
+            DisplayOrder = 0,
+            IsActive = false
+        });
+        await db.SaveChangesAsync();
+        return topicKey;
+    }
+
+    private static CreateHelpTopicRequest ValidCreateRequest() => new(
+        TopicKey: $"test.topic-{Guid.NewGuid():N}",
+        Title: "Test Topic",
+        Summary: "Test summary",
+        Body: "Test body",
+        Audience: HelpAudience.All,
+        Category: "Test",
+        DisplayOrder: 0);
 
     private async Task<(HttpClient Client, Guid UserId)> LoginUserWithRoleAsync(string roleName)
     {
