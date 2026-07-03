@@ -11,8 +11,8 @@ public static class HelpEndpoints
     public static IEndpointRouteBuilder MapHelpEndpoints(this IEndpointRouteBuilder app)
     {
         // Any authenticated role — including Sponsor. Per-role audience filtering happens
-        // inside the handlers (see ListHelpTopicsHandler). Writes (PUT/DELETE,
-        // AdministratorOrAbove) land in a later PR slice (Phase 3).
+        // inside the handlers (see ListHelpTopicsHandler). Writes (POST/PUT/DELETE) are
+        // gated AdministratorOrAbove below.
         var group = app.MapGroup("/help").WithTags("Help").RequireAuthorization();
 
         group.MapGet("/topics", async (ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
@@ -35,6 +35,19 @@ public static class HelpEndpoints
             .RequireAuthorization(PolicyNames.AdministratorOrAbove)
             .WithValidation<CreateHelpTopicRequest>()
             .WithName("CreateHelpTopic");
+
+        group.MapPut("/topics/{id:guid}", async (Guid id, UpdateHelpTopicRequest request, IMediator mediator, CancellationToken ct) =>
+                (await mediator.Send(new UpdateHelpTopicCommand(
+                    id, request.Title, request.Summary, request.Body,
+                    request.Audience, request.Category, request.DisplayOrder), ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithValidation<UpdateHelpTopicRequest>()
+            .WithName("UpdateHelpTopic");
+
+        group.MapDelete("/topics/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
+                (await mediator.Send(new DeleteHelpTopicCommand(id), ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithName("DeleteHelpTopic");
 
         return app;
     }

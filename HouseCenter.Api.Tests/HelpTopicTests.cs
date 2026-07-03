@@ -127,6 +127,63 @@ public sealed class HelpTopicTests(ApiFactory factory)
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
+    [Fact]
+    public async Task UpdateTopic_ChangesFields_PersistsCorrectly()
+    {
+        var (id, topicKey) = await SeedTopicWithIdAsync(HelpAudience.All);
+        var (adminClient, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+        var request = new UpdateHelpTopicRequest(
+            Title: "Updated Title",
+            Summary: "Updated summary",
+            Body: "Updated body",
+            Audience: HelpAudience.Staff,
+            Category: "Updated",
+            DisplayOrder: 5);
+
+        var response = await adminClient.PutAsJsonAsync($"/help/topics/{id}", request);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var topic = await response.Content.ReadFromJsonAsync<HelpTopicResponse>();
+        topic.Should().NotBeNull();
+        // TopicKey is unchanged — the request DTO carries no TopicKey field, so there is
+        // structurally nothing that could have renamed it (R1 immutability).
+        topic!.TopicKey.Should().Be(topicKey);
+        topic.Title.Should().Be("Updated Title");
+        topic.Summary.Should().Be("Updated summary");
+        topic.Body.Should().Be("Updated body");
+        topic.Audience.Should().Be(nameof(HelpAudience.Staff));
+        topic.Category.Should().Be("Updated");
+        topic.DisplayOrder.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task DeleteTopic_AsMember_Returns403()
+    {
+        var (id, _) = await SeedTopicWithIdAsync(HelpAudience.All);
+        var (memberClient, _) = await LoginUserWithRoleAsync(RoleNames.Member);
+
+        var response = await memberClient.DeleteAsync($"/help/topics/{id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task DeleteTopic_ThenGet_Returns404ForEveryRole()
+    {
+        var (id, topicKey) = await SeedTopicWithIdAsync(HelpAudience.All);
+        var (adminClient, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+
+        var deleteResponse = await adminClient.DeleteAsync($"/help/topics/{id}");
+        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        foreach (var role in RoleNames.All)
+        {
+            var (roleClient, _) = await LoginUserWithRoleAsync(role);
+            var getResponse = await roleClient.GetAsync($"/help/topics/{topicKey}");
+            getResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private async Task<string> SeedTopicAsync(HelpAudience audience)
@@ -147,6 +204,27 @@ public sealed class HelpTopicTests(ApiFactory factory)
         });
         await db.SaveChangesAsync();
         return topicKey;
+    }
+
+    private async Task<(Guid Id, string TopicKey)> SeedTopicWithIdAsync(HelpAudience audience)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+
+        var topicKey = $"test.topic-{Guid.NewGuid():N}";
+        var topic = new HelpTopic
+        {
+            TopicKey = topicKey,
+            Title = "Test Topic",
+            Summary = "Test summary",
+            Body = "Test body",
+            Audience = audience,
+            Category = "Test",
+            DisplayOrder = 0
+        };
+        db.HelpTopics.Add(topic);
+        await db.SaveChangesAsync();
+        return (topic.Id, topicKey);
     }
 
     private async Task<string> SeedSoftDeletedTopicAsync()

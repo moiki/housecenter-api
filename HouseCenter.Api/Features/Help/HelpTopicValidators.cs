@@ -24,3 +24,17 @@ public sealed class CreateHelpTopicRequestValidator : AbstractValidator<CreateHe
         RuleFor(x => x.DisplayOrder).GreaterThanOrEqualTo(0);
     }
 }
+
+// Same field rules as create, minus TopicKey — the update DTO has no TopicKey field (R1).
+public sealed class UpdateHelpTopicRequestValidator : AbstractValidator<UpdateHelpTopicRequest>
+{
+    public UpdateHelpTopicRequestValidator()
+    {
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(150);
+        RuleFor(x => x.Summary).NotEmpty().MaximumLength(300);
+        RuleFor(x => x.Body).NotEmpty().MaximumLength(20000);
+        RuleFor(x => x.Audience).IsInEnum();
+        RuleFor(x => x.Category).NotEmpty().MaximumLength(60);
+        RuleFor(x => x.DisplayOrder).GreaterThanOrEqualTo(0);
+    }
+}

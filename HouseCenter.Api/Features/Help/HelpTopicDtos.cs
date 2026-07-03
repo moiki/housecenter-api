@@ -15,3 +15,8 @@ public sealed record HelpTopicResponse(
 public sealed record CreateHelpTopicRequest(
     string TopicKey, string Title, string Summary, string Body,
     HelpAudience Audience, string Category, int DisplayOrder);
+
+// No TopicKey field — the persisted key structurally cannot change via this DTO (R1).
+public sealed record UpdateHelpTopicRequest(
+    string Title, string Summary, string Body,
+    HelpAudience Audience, string Category, int DisplayOrder);

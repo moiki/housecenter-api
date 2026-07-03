@@ -11,11 +11,34 @@ completed_phases:
   - spec
   - tasks
 chain_strategy: stacked-to-main
-chain_slice: 2 of 4
-current_slice: "Phase 3 — Update + Delete (PR3)"
+chain_slice: 3 of 4
+current_slice: "Phase 4 — Starter Content Seed (PR4)"
 phase1_status: complete
 phase2_status: complete
+phase3_status: complete
 notes: |
+  Phase 3 (PR3 slice) implemented via strict TDD (RED-GREEN-REFACTOR against
+  HelpTopicTests.cs, 9 pre-existing tests as safety net): extended HelpTopicDtos.cs with
+  UpdateHelpTopicRequest (no TopicKey field — the persisted key structurally cannot change
+  via this DTO, so immutability needs no runtime guard); UpdateHelpTopicRequestValidator
+  added to HelpTopicValidators.cs (same field rules as create, minus TopicKey, matching the
+  Create/Update duplication precedent in ClinicValidators.cs — no shared base extracted);
+  UpdateHelpTopic.cs command+handler (loads by id via the normal tracked query, which already
+  respects the global IsActive filter, so updating a soft-deleted topic 404s like a
+  nonexistent one; applies all fields except TopicKey); DeleteHelpTopic.cs command+handler
+  (sets IsActive = false, returns Result.Success() -> 204 via ToHttpResult()); PUT and DELETE
+  /help/topics/{id:guid} routes added to HelpEndpoints.cs, both gated
+  PolicyNames.AdministratorOrAbove, PUT wired through .WithValidation<UpdateHelpTopicRequest>().
+  Task 3.6's originally-specified test name
+  (UpdateTopic_TopicKeyInPayloadIgnored_PersistedKeyUnchanged) was renamed to
+  UpdateTopic_ChangesFields_PersistsCorrectly per explicit apply-time direction: since the
+  request DTO has no TopicKey field, there is nothing to assert about "ignoring" a value that
+  cannot be sent — the test instead verifies a normal field update persists correctly
+  (including that TopicKey stays the same). 3/3 new tests pass; full suite 112/112 (109
+  baseline + 3 new), zero regressions. `dotnet ef migrations has-pending-model-changes`
+  reports none (no entity shape change this phase, as expected). Phase 4 (seeder, starter
+  seed content) remains untouched — next PR slice.
+
   Phase 2 (PR2 slice) implemented via strict TDD (RED-GREEN-REFACTOR against
   HelpTopicTests.cs, 3 pre-existing tests as safety net): extended HelpTopicDtos.cs with
   HelpTopicResponse (Audience typed as string, not HelpAudience — matches the codebase

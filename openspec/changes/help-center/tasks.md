@@ -53,12 +53,17 @@ comfortably under budget on its own).
 **PR2 done when:** `dotnet build` clean, 6 new + 3 prior tests green.
 
 ## Phase 3: Update + Delete (Admin Writes) — PR3 (~210 lines)
-- [ ] 3.1 Extend `HelpTopicDtos.cs` — `UpdateHelpTopicRequest` (no TopicKey field)
-- [ ] 3.2 Add `UpdateHelpTopicRequestValidator` to `HelpTopicValidators.cs`
-- [ ] 3.3 `Features/Help/UpdateHelpTopic.cs` — command+handler: ignores any TopicKey in payload, persisted key unchanged (R1)
-- [ ] 3.4 `Features/Help/DeleteHelpTopic.cs` — command+handler: soft delete (`IsActive = false`) → 204 (R6)
-- [ ] 3.5 Add `PUT /help/topics/{id:guid}` and `DELETE /help/topics/{id:guid}` routes, `PolicyNames.AdministratorOrAbove`
-- [ ] 3.6 Tests: `UpdateTopic_TopicKeyInPayloadIgnored_PersistedKeyUnchanged`, `DeleteTopic_AsMember_Returns403`, `DeleteTopic_ThenGet_Returns404ForEveryRole`
+- [x] 3.1 Extend `HelpTopicDtos.cs` — `UpdateHelpTopicRequest` (no TopicKey field)
+- [x] 3.2 Add `UpdateHelpTopicRequestValidator` to `HelpTopicValidators.cs`
+- [x] 3.3 `Features/Help/UpdateHelpTopic.cs` — command+handler: ignores any TopicKey in payload, persisted key unchanged (R1)
+- [x] 3.4 `Features/Help/DeleteHelpTopic.cs` — command+handler: soft delete (`IsActive = false`) → 204 (R6)
+- [x] 3.5 Add `PUT /help/topics/{id:guid}` and `DELETE /help/topics/{id:guid}` routes, `PolicyNames.AdministratorOrAbove`
+- [x] 3.6 Tests: `UpdateTopic_ChangesFields_PersistsCorrectly` (renamed from
+      `UpdateTopic_TopicKeyInPayloadIgnored_PersistedKeyUnchanged` — the request DTO has no
+      TopicKey field at all, so immutability is structurally guaranteed, not runtime-checked;
+      the test instead asserts a normal field update persists correctly, including that
+      TopicKey is unchanged), `DeleteTopic_AsMember_Returns403`,
+      `DeleteTopic_ThenGet_Returns404ForEveryRole`
 
 **PR3 done when:** `dotnet build` clean, 3 new + 9 prior tests green.
 
