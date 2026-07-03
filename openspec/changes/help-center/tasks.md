@@ -68,9 +68,9 @@ comfortably under budget on its own).
 **PR3 done when:** `dotnet build` clean, 3 new + 9 prior tests green.
 
 ## Phase 4: Starter Content Seed — PR4 (~250 lines)
-- [ ] 4.1 `Data/DatabaseSeeder.cs` — insert-if-missing `HelpTopic` block, matched on TopicKey, never updates existing rows (R7)
-- [ ] 4.2 Author 3–5 Spanish starter topics: `sessions.recording`, `sessions.clinic-or-route`, `sessions.status-lifecycle`, `patients.assign-doctor`, `treatments.status-lifecycle`
-- [ ] 4.3 `openspec/IMPLEMENTATION_PLAN.md` — +1 line noting help-center backend shipped
-- [ ] 4.4 Test: `Seeder_RunsTwice_NoDuplicates_EditsSurviveReseed` (R7)
+- [x] 4.1 `Data/DatabaseSeeder.cs` — insert-if-missing `HelpTopic` block, matched on TopicKey, never updates existing rows (R7)
+- [x] 4.2 Author 3–5 Spanish starter topics: `sessions.recording`, `sessions.clinic-or-route`, `sessions.status-lifecycle`, `patients.assign-doctor`, `treatments.status-lifecycle`
+- [x] 4.3 `openspec/IMPLEMENTATION_PLAN.md` — +1 line noting help-center backend shipped
+- [x] 4.4 Test: `Seeder_RunsTwice_NoDuplicates_EditsSurviveReseed` (R7)
 
 **PR4 done when:** fresh DB boots with the starter catalog; reseeding never overwrites an admin edit.

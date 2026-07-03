@@ -3,20 +3,70 @@ artifact_store: openspec
 execution_mode: interactive
 delivery_strategy: ask-on-risk
 created: 2026-07-03
-phase: apply
+phase: verify
 status: in_progress
 completed_phases:
   - explore
   - propose
   - spec
   - tasks
+  - apply
 chain_strategy: stacked-to-main
-chain_slice: 3 of 4
-current_slice: "Phase 4 — Starter Content Seed (PR4)"
+chain_slice: 4 of 4
+current_slice: null
 phase1_status: complete
 phase2_status: complete
 phase3_status: complete
+phase4_status: complete
 notes: |
+  Phase 4 (PR4 slice, FINAL) implemented via strict TDD (RED-GREEN-REFACTOR against a new
+  DatabaseSeederTests.cs, no pre-existing seeder tests to extend): added
+  DatabaseSeeder.SeedHelpTopicsAsync (insert-if-missing on TopicKey via IgnoreQueryFilters(),
+  matching the SeedRolesAsync idiom — diff existing keys, insert only missing, one
+  SaveChangesAsync call), called from StartAsync alongside SeedRolesAsync/SeedOwnerUserAsync.
+  Authored 5 starter topics as fresh HelpTopic instances per call (GetStarterHelpTopics(),
+  not a static field, to avoid sharing mutable entity identity across seeder runs):
+  sessions.recording, sessions.clinic-or-route, sessions.status-lifecycle,
+  patients.assign-doctor, treatments.status-lifecycle — all Audience=Staff per the proposal's
+  taxonomy, real Spanish content grounded in the actual attention-sessions spec and current
+  Sessions/PatientService/Treatment code (not invented): confirmed via source read that
+  ClinicId/WorkRouteId is an "at least one" rule (both may be set, matches
+  SessionValidators.cs / CreateAttentionSession.cs), that SessionStatus is a strict one-way
+  machine (Scheduled -> Completed|Missed terminal, enforced in UpdateSessionStatus.cs, 409 on
+  violation), that doctor assignment is Owner-only with a Doctor-role requirement
+  (PatientEndpoints.cs PolicyNames.OwnerOnly + PatientService.AddPatientDoctorAsync role
+  check), and that TreatmentStatus (unlike SessionStatus) has NO enforced transition
+  restriction — any authenticated caller can PATCH a treatment freely between
+  Active/Completed/Paused (UpdateTreatmentStatusAsync has no state-machine guard) — this
+  contrast is called out explicitly in the treatments.status-lifecycle topic body so the
+  content doesn't misrepresent it as sessions-like.
+  Added DatabaseSeederTests.Seeder_RunsTwice_NoDuplicates_EditsSurviveReseed: builds a
+  minimal DI container (ServiceCollection + AddDbContext<HouseCenterDbContext> on
+  UseInMemoryDatabase), constructs DatabaseSeeder directly with
+  RecreateOnStartup=false/ApplyMigrationsAtStartup=false (both false so StartAsync skips
+  straight to the seed steps — the InMemory provider does not support real migrations),
+  runs it once (asserts 5 topics), simulates an admin edit via a direct DB update to one
+  topic's Summary, runs it again, and asserts no duplicate TopicKey rows plus the edit
+  survived. Hit and fixed a real bug while writing this test (documented inline as a code
+  comment): `services.AddDbContext<HouseCenterDbContext>(o =>
+  o.UseInMemoryDatabase(Guid.NewGuid().ToString()))` re-evaluates the Guid INSIDE the
+  configure delegate, which EF Core re-invokes on every DbContext construction (i.e. every
+  DI scope) — so each scope silently got its own randomly-named, empty InMemory database
+  instead of sharing one, making cross-scope assertions read back 0 rows with no exception.
+  Fix: capture `var dbName = Guid.NewGuid().ToString();` once, reference it inside the
+  lambda. Confirmed via an isolated throwaway repro test (removed after diagnosis) that a
+  fixed/pre-captured name works correctly. 1/1 new test passes; full suite 113/113 (112
+  baseline + 1 new), zero regressions — including the full ApiFactory-backed integration
+  suite (SeedEndpointTests, HelpTopicTests, etc.), which indirectly re-validates the seed
+  data against the real Postgres schema (field max-lengths, unique TopicKey index) since
+  ApiFactory boots the real DatabaseSeeder with RecreateOnStartup=true.
+  `dotnet ef migrations has-pending-model-changes` reports none (no entity shape change this
+  phase, as expected — content is data, not schema). Updated
+  openspec/IMPLEMENTATION_PLAN.md with a "Help center backend" line under "Delivered since
+  then", noting frontend surfacing remains a separate housecenter-web follow-up. ALL 4
+  chained PR slices of help-center are now implemented; this file's tasks.md has every task
+  marked [x]. Ready for sdd-verify.
+
   Phase 3 (PR3 slice) implemented via strict TDD (RED-GREEN-REFACTOR against
   HelpTopicTests.cs, 9 pre-existing tests as safety net): extended HelpTopicDtos.cs with
   UpdateHelpTopicRequest (no TopicKey field — the persisted key structurally cannot change

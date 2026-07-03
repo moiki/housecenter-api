@@ -147,6 +147,10 @@ Delivered since then:
 - **Frontend** — `housecenter-web` (greenfield Vite/React/TS SPA, not `house-mui-v1`) — see
   `openspec/changes/housecenter-web/` — implemented (2026-07-02, T1–T15; UI kit ended up
   being MUI v9, not Untitled UI)
+- **Help center backend** — see `openspec/changes/help-center/` — implemented (2026-07-03,
+  4 chained PRs: `HelpTopic` CRUD module + role-filtered reads + a 5-topic Spanish starter
+  seed via `DatabaseSeeder`); frontend surfacing (tooltips/`/help` pages) is a separate,
+  dependent follow-up against `housecenter-web`
 
 Still not yet planned:
 - **Patient anonymization** — GDPR-style controls for patient data export/deletion
