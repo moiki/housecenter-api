@@ -54,7 +54,8 @@ public sealed record UpdatePatientRequest(
 public sealed record PatientFullSummaryResponse(
     PatientResponse Patient,
     IReadOnlyList<TreatmentSummaryDto> Treatments,
-    IReadOnlyList<PatientCommentDto> Comments);
+    IReadOnlyList<PatientCommentDto> Comments,
+    IReadOnlyList<DoctorSummaryDto> AssignedDoctors);
 
 public sealed record TreatmentSummaryDto(
     Guid Id,
@@ -71,6 +72,12 @@ public sealed record PatientCommentDto(
     string Status,
     Guid UserId,
     DateTime CreatedDate);
+
+public sealed record DoctorSummaryDto(
+    Guid Id,
+    string FirstName,
+    string LastName,
+    string Email);
 
 // --- Treatment ---
 public sealed record TreatmentResponse(

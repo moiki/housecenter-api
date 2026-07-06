@@ -3,8 +3,12 @@ using System.Net.Http.Json;
 using System.Text;
 using FluentAssertions;
 using HouseCenter.Api.Common.Pagination;
+using HouseCenter.Api.Data;
+using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Patients;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HouseCenter.Api.Tests;
 
@@ -112,6 +116,23 @@ public sealed class PatientFlowTests(ApiFactory factory)
         summary!.Patient.Id.Should().Be(patient.Id);
         summary.Treatments.Should().HaveCount(1);
         summary.Comments.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task GetFullSummary_WithAssignedDoctor_IncludesDoctor()
+    {
+        var client = await Client();
+        var patient = await CreatePatientAsync(client, "DoctorSummaryTest");
+        var (doctorId, doctorEmail) = await SeedDoctorAsync();
+
+        var assignResponse = await client.PostAsync($"/patients/{patient.Id}/doctors/{doctorId}", null);
+        assignResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var response = await client.GetAsync($"/patients/{patient.Id}/full-summary");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var summary = await response.Content.ReadFromJsonAsync<PatientFullSummaryResponse>();
+        summary!.AssignedDoctors.Should().ContainSingle(d => d.Id == doctorId && d.Email == doctorEmail);
     }
 
     // ─── Treatments ───────────────────────────────────────────────────────────
@@ -242,5 +263,28 @@ public sealed class PatientFlowTests(ApiFactory factory)
                 DateTime.UtcNow, DateTime.UtcNow.AddMonths(1)));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<TreatmentResponse>())!;
+    }
+
+    /// <summary>Inserts a Doctor-role user straight into the test DB.</summary>
+    private async Task<(Guid Id, string Email)> SeedDoctorAsync()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+        var role = await db.Roles.SingleAsync(r => r.Name == RoleNames.Doctor);
+
+        var doctor = new User
+        {
+            FirstName = "Doctor",
+            LastName = "Test",
+            Email = $"doctor-{Guid.NewGuid():N}@test.local",
+            HashedPassword = BCrypt.Net.BCrypt.HashPassword("Test123!pass"),
+            Address = "Test 123",
+            EmailConfirmed = true,
+            Roles = [role]
+        };
+
+        db.Users.Add(doctor);
+        await db.SaveChangesAsync();
+        return (doctor.Id, doctor.Email);
     }
 }

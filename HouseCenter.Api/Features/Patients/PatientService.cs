@@ -209,7 +209,7 @@ public sealed class PatientService(
     // Task.WhenAll over hot queries on the same scoped context races and throws
     // "a second operation was started on this context". True parallelism would need
     // a separate context per query (IDbContextFactory). As a bonus, the patient
-    // query now gates the rest: not-found skips the other two round trips entirely.
+    // query now gates the rest: not-found skips the other round trips entirely.
     public async Task<Result<PatientFullSummaryResponse>> GetFullSummaryAsync(Guid id, CancellationToken ct)
     {
         var patient = await db.Patients
@@ -239,7 +239,14 @@ public sealed class PatientService(
                 c.Id, c.Body, c.Type.ToString(), c.Status.ToString(), c.UserId, c.CreatedDate))
             .ToListAsync(ct);
 
-        return new PatientFullSummaryResponse(patient, treatments, comments);
+        var assignedDoctors = await db.Patients
+            .AsNoTracking()
+            .Where(p => p.Id == id)
+            .SelectMany(p => p.AssignedDoctors)
+            .Select(u => new DoctorSummaryDto(u.Id, u.FirstName, u.LastName, u.Email))
+            .ToListAsync(ct);
+
+        return new PatientFullSummaryResponse(patient, treatments, comments, assignedDoctors);
     }
 
     // ─── Treatments ──────────────────────────────────────────────────────────
