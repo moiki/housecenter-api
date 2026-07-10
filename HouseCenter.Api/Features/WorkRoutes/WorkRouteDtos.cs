@@ -14,17 +14,29 @@ public sealed record WorkRouteResponse(
     Guid ClinicId,
     string ClinicName,
     IReadOnlyList<DestinationPointDto> Destinations,
-    bool IsActive);
+    bool IsActive,
+    IReadOnlyList<string> RecurrenceDays,
+    DateOnly RecurrenceStartDate,
+    DateOnly? RecurrenceEndDate,
+    bool IsRecurrenceIndefinite);
 
 public sealed record CreateWorkRouteRequest(
     string RouteName,
     string Description,
     string? FeaturedImage,
     Guid ClinicId,
-    IReadOnlyList<DestinationPointDto> Destinations);
+    IReadOnlyList<DestinationPointDto> Destinations,
+    IReadOnlyList<string> RecurrenceDays,
+    DateOnly RecurrenceStartDate,
+    DateOnly? RecurrenceEndDate,
+    bool IsRecurrenceIndefinite);
 
 public sealed record UpdateWorkRouteRequest(
     string RouteName,
     string Description,
     string? FeaturedImage,
-    IReadOnlyList<DestinationPointDto> Destinations);
+    IReadOnlyList<DestinationPointDto> Destinations,
+    IReadOnlyList<string> RecurrenceDays,
+    DateOnly RecurrenceStartDate,
+    DateOnly? RecurrenceEndDate,
+    bool IsRecurrenceIndefinite);
