@@ -195,6 +195,32 @@ try
 
     var app = builder.Build();
 
+    // Dev convenience: `dotnet run -- --reset-help-topics` wipes the starter HelpTopics
+    // rows so DatabaseSeeder (a hosted service started further below by app.Run()) reinserts
+    // them fresh in this same run — no separate restart needed. DatabaseSeeder normally never
+    // touches an existing row, by design, so this is the escape hatch for "I edited the
+    // starter content in code and want my local DB to pick it up." Custom topics created via
+    // the admin API are untouched: only TopicKeys still present in GetStarterHelpTopicKeys()
+    // are ever deleted.
+    if (args.Contains("--reset-help-topics"))
+    {
+        if (!app.Environment.IsDevelopment())
+        {
+            throw new InvalidOperationException("--reset-help-topics is a Development-only dev convenience flag.");
+        }
+
+        using var resetScope = app.Services.CreateScope();
+        var db = resetScope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+        var starterKeys = DatabaseSeeder.GetStarterHelpTopicKeys();
+        var deleted = await db.HelpTopics
+            .IgnoreQueryFilters()
+            .Where(t => starterKeys.Contains(t.TopicKey))
+            .ExecuteDeleteAsync();
+        app.Logger.LogWarning(
+            "--reset-help-topics: deleted {Count} starter help topics; they will be reseeded fresh on this startup.",
+            deleted);
+    }
+
     app.UseExceptionHandler();
 
     if (app.Environment.IsDevelopment())

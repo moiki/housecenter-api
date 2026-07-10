@@ -688,4 +688,10 @@ public class DatabaseSeeder(
             DisplayOrder = 1
         }
     ];
+
+    // Lets a dev-only startup flag (see Program.cs's --reset-help-topics) wipe exactly the
+    // starter rows so the next seed run reinserts them with whatever content is currently
+    // in GetStarterHelpTopics() — without hardcoding the key list a second time anywhere.
+    internal static IReadOnlyCollection<string> GetStarterHelpTopicKeys() =>
+        GetStarterHelpTopics().Select(t => t.TopicKey).ToList();
 }
