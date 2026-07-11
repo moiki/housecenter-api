@@ -244,7 +244,11 @@ public sealed class ReportTests(ApiFactory factory)
             [
                 new DestinationPointDto("Punto A", "Primera parada", null, null),
                 new DestinationPointDto("Punto B", "Segunda parada", null, null)
-            ]));
+            ],
+            ["Tuesday", "Thursday"],
+            DateOnly.FromDateTime(DateTime.UtcNow),
+            null,
+            true));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<WorkRouteResponse>())!;
     }

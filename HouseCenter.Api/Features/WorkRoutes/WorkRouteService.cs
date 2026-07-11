@@ -23,37 +23,26 @@ public sealed class WorkRouteService(
 
     public async Task<Result<List<WorkRouteResponse>>> ListAsync(CancellationToken ct)
     {
-        // Owned JSON collection projects like any navigation — EF rebuilds it from the json column
-        var list = await db.WorkRoutes
+        // Fetch-then-map (LOAD-BEARING): the enum->string[] weekday expansion in ToResponse
+        // cannot translate to SQL, so this can no longer project inside the EF .Select — load
+        // entities (owned JSON Destinations included automatically) then map in memory.
+        var workRoutes = await db.WorkRoutes
             .AsNoTracking()
+            .Include(w => w.Clinic)
             .OrderBy(w => w.RouteName)
-            .Select(w => new WorkRouteResponse(
-                w.Id, w.RouteName, w.Description, w.FeaturedImage,
-                w.ClinicId, w.Clinic.Name,
-                w.Destinations
-                    .Select(d => new DestinationPointDto(d.Name, d.Description, d.Picture, d.GoogleMapUrl))
-                    .ToList(),
-                w.IsActive))
             .ToListAsync(ct);
 
-        return list;
+        return workRoutes.Select(w => ToResponse(w, w.Clinic.Name)).ToList();
     }
 
     public async Task<Result<WorkRouteResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var route = await db.WorkRoutes
             .AsNoTracking()
-            .Where(w => w.Id == id)
-            .Select(w => new WorkRouteResponse(
-                w.Id, w.RouteName, w.Description, w.FeaturedImage,
-                w.ClinicId, w.Clinic.Name,
-                w.Destinations
-                    .Select(d => new DestinationPointDto(d.Name, d.Description, d.Picture, d.GoogleMapUrl))
-                    .ToList(),
-                w.IsActive))
-            .SingleOrDefaultAsync(ct);
+            .Include(w => w.Clinic)
+            .SingleOrDefaultAsync(w => w.Id == id, ct);
 
-        return route is not null ? route : NotFound;
+        return route is not null ? ToResponse(route, route.Clinic.Name) : NotFound;
     }
 
     public async Task<Result<WorkRouteResponse>> CreateAsync(CreateWorkRouteRequest request, CancellationToken ct)
@@ -78,7 +67,11 @@ public sealed class WorkRouteService(
                     Picture = d.Picture,
                     GoogleMapUrl = d.GoogleMapUrl
                 })
-                .ToList()
+                .ToList(),
+            RecurrenceDays = ToFlags(request.RecurrenceDays),
+            RecurrenceStartDate = request.RecurrenceStartDate,
+            RecurrenceEndDate = request.RecurrenceEndDate,
+            IsRecurrenceIndefinite = request.IsRecurrenceIndefinite
         };
 
         routes.Add(route);
@@ -110,6 +103,12 @@ public sealed class WorkRouteService(
             })
             .ToList();
 
+        // Update allows an empty weekday set (D9) — ToFlags(empty) yields Weekday.None
+        route.RecurrenceDays = ToFlags(request.RecurrenceDays);
+        route.RecurrenceStartDate = request.RecurrenceStartDate;
+        route.RecurrenceEndDate = request.RecurrenceEndDate;
+        route.IsRecurrenceIndefinite = request.IsRecurrenceIndefinite;
+
         await routes.SaveChangesAsync(ct);
 
         return ToResponse(route, route.Clinic.Name);
@@ -132,5 +131,20 @@ public sealed class WorkRouteService(
         w.Destinations
             .Select(d => new DestinationPointDto(d.Name, d.Description, d.Picture, d.GoogleMapUrl))
             .ToList(),
-        w.IsActive);
+        w.IsActive,
+        ToNames(w.RecurrenceDays),
+        w.RecurrenceStartDate,
+        w.RecurrenceEndDate,
+        w.IsRecurrenceIndefinite);
+
+    // Wire format is a PascalCase string[] (e.g. ["Tuesday","Thursday"]) — the [Flags] comma
+    // string stays a pure storage detail; these two helpers map at the DTO boundary.
+    private static List<string> ToNames(Weekday days) =>
+        Enum.GetValues<Weekday>()
+            .Where(d => d != Weekday.None && days.HasFlag(d))
+            .Select(d => d.ToString())
+            .ToList();
+
+    private static Weekday ToFlags(IEnumerable<string> names) =>
+        names.Aggregate(Weekday.None, (acc, name) => acc | Enum.Parse<Weekday>(name));
 }

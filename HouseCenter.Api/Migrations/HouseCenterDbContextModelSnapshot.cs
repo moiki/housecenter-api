@@ -931,6 +931,24 @@ namespace HouseCenter.Api.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsRecurrenceIndefinite")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("RecurrenceDays")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasDefaultValue("None");
+
+                    b.Property<DateOnly?>("RecurrenceEndDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("RecurrenceStartDate")
+                        .HasColumnType("date");
+
                     b.Property<string>("RouteName")
                         .IsRequired()
                         .HasMaxLength(200)
