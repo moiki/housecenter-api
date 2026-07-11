@@ -34,7 +34,7 @@ public sealed class DatabaseSeederTests
 
         var seeder = CreateSeeder(provider);
 
-        // First run: seeds the 5 starter HelpTopics (insert-if-missing).
+        // First run: seeds the starter HelpTopics (insert-if-missing).
         await seeder.StartAsync(CancellationToken.None);
 
         const string editedSummary = "Editado por un administrador vía PUT — no debe perderse";
@@ -42,7 +42,7 @@ public sealed class DatabaseSeederTests
         {
             var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
             var topics = await db.HelpTopics.ToListAsync();
-            topics.Should().HaveCount(5);
+            topics.Should().HaveCount(DatabaseSeeder.GetStarterHelpTopicKeys().Count);
 
             // Simulate an admin edit made through the API (PUT /help/topics/{id}).
             var edited = topics.Single(t => t.TopicKey == "sessions.recording");
@@ -57,7 +57,7 @@ public sealed class DatabaseSeederTests
         var finalDb = finalScope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
         var finalTopics = await finalDb.HelpTopics.ToListAsync();
 
-        finalTopics.Should().HaveCount(5);
+        finalTopics.Should().HaveCount(DatabaseSeeder.GetStarterHelpTopicKeys().Count);
         finalTopics.Select(t => t.TopicKey).Should().OnlyHaveUniqueItems();
         finalTopics.Single(t => t.TopicKey == "sessions.recording").Summary.Should().Be(editedSummary);
     }
@@ -71,7 +71,7 @@ public sealed class DatabaseSeederTests
         services.AddDbContext<HouseCenterDbContext>(o => o.UseInMemoryDatabase(dbName));
         var provider = services.BuildServiceProvider();
 
-        // Pre-seed 3 of the 5 starter topics BEFORE the seeder ever runs, simulating a
+        // Pre-seed 3 of the starter topics BEFORE the seeder ever runs, simulating a
         // database that already has partial content (e.g. a prior manual insert or a
         // previous, interrupted seed run).
         const string preexistingSummary = "Contenido ya presente antes de correr el seeder";
@@ -119,8 +119,8 @@ public sealed class DatabaseSeederTests
         var finalDb = finalScope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
         var finalTopics = await finalDb.HelpTopics.ToListAsync();
 
-        // All 5 starter topics now exist: the 3 pre-existing rows plus the 2 backfilled ones.
-        finalTopics.Should().HaveCount(5);
+        // All starter topics now exist: the 3 pre-existing rows plus the rest backfilled by the seeder.
+        finalTopics.Should().HaveCount(DatabaseSeeder.GetStarterHelpTopicKeys().Count);
         finalTopics.Select(t => t.TopicKey).Should().OnlyHaveUniqueItems();
 
         // The 2 missing topics were inserted by the seeder.
