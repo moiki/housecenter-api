@@ -1,3 +1,4 @@
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Common.Validation;
 using HouseCenter.Api.Domain.Constants;
@@ -13,8 +14,8 @@ public static class ClinicEndpoints
     {
         var group = app.MapGroup("/clinics").WithTags("Clinics").RequireAuthorization();
 
-        group.MapGet("/", async (IMediator mediator, CancellationToken ct) =>
-                (await mediator.Send(new GetClinicsQuery(), ct)).ToHttpResult())
+        group.MapGet("/", async ([AsParameters] PageQuery paging, IMediator mediator, CancellationToken ct) =>
+                (await mediator.Send(new GetClinicsQuery(paging), ct)).ToHttpResult())
             .WithName("ListClinics");
 
         group.MapGet("/{id:guid}", async (Guid id, IMediator mediator, CancellationToken ct) =>
