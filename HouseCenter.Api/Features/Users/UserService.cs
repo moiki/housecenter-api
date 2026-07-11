@@ -1,3 +1,4 @@
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Persistence;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
@@ -8,7 +9,7 @@ namespace HouseCenter.Api.Features.Users;
 
 public interface IUserService
 {
-    Task<Result<List<UserResponse>>> ListAsync(CancellationToken ct);
+    Task<Result<PagedResult<UserResponse>>> ListAsync(PageQuery paging, CancellationToken ct);
     Task<Result<UserResponse>> GetByIdAsync(Guid id, CancellationToken ct);
     Task<Result<UserResponse>> UpdateAsync(Guid id, UpdateUserRequest request, CancellationToken ct);
     Task<Result> DeactivateAsync(Guid id, CancellationToken ct);
@@ -23,22 +24,21 @@ public sealed class UserService(
 {
     private static readonly Error NotFound = Error.NotFound("users.not_found", "User not found");
 
-    public async Task<Result<List<UserResponse>>> ListAsync(CancellationToken ct)
+    public async Task<Result<PagedResult<UserResponse>>> ListAsync(PageQuery paging, CancellationToken ct)
     {
         // Complex read (projection + relation) → straight to DbContext, per repository rule.
         // Projection must be INLINE: EF translates expression trees, not method calls —
         // Select(u => ToResponse(u)) would throw "could not be translated" at runtime.
-        var list = await db.Users
+        var query = db.Users
             .AsNoTracking()
             .OrderBy(u => u.FirstName).ThenBy(u => u.LastName)
             .Select(u => new UserResponse(
                 u.Id, u.FirstName, u.LastName, u.Email, u.PhoneNumber,
                 u.Country, u.State, u.City, u.Address, u.Profession,
                 u.ProfilePicture, u.DarkMode, u.IsActive,
-                u.Roles.Select(r => r.Name).ToList()))
-            .ToListAsync(ct);
+                u.Roles.Select(r => r.Name).ToList()));
 
-        return list;
+        return await query.ToPagedResultAsync(paging, ct);
     }
 
     public async Task<Result<UserResponse>> GetByIdAsync(Guid id, CancellationToken ct)

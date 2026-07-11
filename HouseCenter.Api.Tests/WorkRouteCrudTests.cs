@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Clinics;
@@ -200,6 +201,73 @@ public sealed class WorkRouteCrudTests(ApiFactory factory)
     {
         var response = await factory.CreateClient().GetAsync(Base);
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ListWorkRoutes_DefaultPaging_ReturnsEnvelopeWithPageOneAndSizeTwenty()
+    {
+        var client = await Client();
+        var clinic = await CreateClinicAsync(client);
+        await CreateWorkRouteAsync(client, clinic.Id);
+
+        var response = await client.GetAsync(Base);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var paged = await response.Content.ReadFromJsonAsync<PagedResult<WorkRouteResponse>>();
+        paged!.Items.Should().NotBeEmpty();
+        paged.Page.Should().Be(1);
+        paged.PageSize.Should().Be(20);
+        paged.TotalCount.Should().BeGreaterThanOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task ListWorkRoutes_Page2_ReturnsNextSlice()
+    {
+        var client = await Client();
+        var clinic = await CreateClinicAsync(client);
+        for (var i = 0; i < 3; i++)
+            await CreateWorkRouteAsync(client, clinic.Id);
+
+        var page1 = await (await client.GetAsync($"{Base}?page=1&pageSize=1"))
+            .Content.ReadFromJsonAsync<PagedResult<WorkRouteResponse>>();
+        var page2 = await (await client.GetAsync($"{Base}?page=2&pageSize=1"))
+            .Content.ReadFromJsonAsync<PagedResult<WorkRouteResponse>>();
+
+        page1!.Items.Should().HaveCount(1);
+        page2!.Items.Should().HaveCount(1);
+        page2.Page.Should().Be(2);
+        page1.Items[0].Id.Should().NotBe(page2.Items[0].Id);
+    }
+
+    [Fact]
+    public async Task ListWorkRoutes_PageSizeAbove100_ClampsTo100()
+    {
+        var client = await Client();
+
+        var response = await client.GetAsync($"{Base}?page=1&pageSize=500");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var paged = await response.Content.ReadFromJsonAsync<PagedResult<WorkRouteResponse>>();
+        paged!.PageSize.Should().Be(100);
+    }
+
+    [Fact]
+    public async Task ListWorkRoutes_AfterPaginate_WeekdayEnumStillMapsToStringArrayInMemory()
+    {
+        // Regression guard for the WorkRoutes pagination nuance: the entity IQueryable is
+        // paginated FIRST (Skip/Take over WorkRoute), THEN the weekday Flags enum is expanded
+        // to a string[] in memory — if that ordering were reversed (or done inside .Select),
+        // this would throw at runtime ("could not be translated") instead of silently mismapping.
+        var client = await Client();
+        var clinic = await CreateClinicAsync(client);
+        await CreateWorkRouteAsync(client, clinic.Id, recurrenceDays: ["Tuesday", "Thursday"]);
+
+        var response = await client.GetAsync($"{Base}?page=1&pageSize=20");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var paged = await response.Content.ReadFromJsonAsync<PagedResult<WorkRouteResponse>>();
+        paged!.Items.Should().Contain(w =>
+            w.RecurrenceDays.SequenceEqual(new[] { "Tuesday", "Thursday" }));
     }
 
     [Fact]

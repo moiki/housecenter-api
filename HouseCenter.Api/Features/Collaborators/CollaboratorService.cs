@@ -1,3 +1,4 @@
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Persistence;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
@@ -8,7 +9,7 @@ namespace HouseCenter.Api.Features.Collaborators;
 
 public interface ICollaboratorService
 {
-    Task<Result<List<CollaboratorResponse>>> ListAsync(CancellationToken ct);
+    Task<Result<PagedResult<CollaboratorResponse>>> ListAsync(PageQuery paging, CancellationToken ct);
     Task<Result<CollaboratorResponse>> GetByIdAsync(Guid id, CancellationToken ct);
     Task<Result<CollaboratorResponse>> CreateAsync(CreateCollaboratorRequest request, CancellationToken ct);
     Task<Result<CollaboratorResponse>> UpdateAsync(Guid id, UpdateCollaboratorRequest request, CancellationToken ct);
@@ -21,9 +22,9 @@ public sealed class CollaboratorService(
 {
     private static readonly Error NotFound = Error.NotFound("collaborators.not_found", "Collaborator not found");
 
-    public async Task<Result<List<CollaboratorResponse>>> ListAsync(CancellationToken ct)
+    public async Task<Result<PagedResult<CollaboratorResponse>>> ListAsync(PageQuery paging, CancellationToken ct)
     {
-        var list = await db.Collaborators
+        var query = db.Collaborators
             .AsNoTracking()
             .OrderBy(c => c.FirstName).ThenBy(c => c.LastName)
             .Select(c => new CollaboratorResponse(
@@ -31,10 +32,9 @@ public sealed class CollaboratorService(
                 c.Country, c.State, c.City, c.ProfilePicture,
                 c.ClinicId, c.Clinic.Name, c.WorkRouteId,
                 c.Positions.Select(p => new PositionDto(p.Id, p.Name)).ToList(),
-                c.IsActive))
-            .ToListAsync(ct);
+                c.IsActive));
 
-        return list;
+        return await query.ToPagedResultAsync(paging, ct);
     }
 
     public async Task<Result<CollaboratorResponse>> GetByIdAsync(Guid id, CancellationToken ct)

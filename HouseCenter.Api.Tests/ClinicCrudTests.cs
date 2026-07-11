@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Features.Clinics;
 
 namespace HouseCenter.Api.Tests;
@@ -106,6 +107,52 @@ public sealed class ClinicCrudTests(ApiFactory factory)
     {
         var response = await factory.CreateClient().GetAsync(Base);
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ListClinics_DefaultPaging_ReturnsEnvelopeWithPageOneAndSizeTwenty()
+    {
+        var client = await Client();
+        await CreateClinicAsync(client, $"Clínica Paginada {Guid.NewGuid():N}"[..25]);
+
+        var response = await client.GetAsync(Base);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var paged = await response.Content.ReadFromJsonAsync<PagedResult<ClinicResponse>>();
+        paged!.Items.Should().NotBeEmpty();
+        paged.Page.Should().Be(1);
+        paged.PageSize.Should().Be(20);
+        paged.TotalCount.Should().BeGreaterThanOrEqualTo(1);
+    }
+
+    [Fact]
+    public async Task ListClinics_Page2_ReturnsNextSlice()
+    {
+        var client = await Client();
+        for (var i = 0; i < 3; i++)
+            await CreateClinicAsync(client, $"Clínica Slice {i}-{Guid.NewGuid():N}"[..25]);
+
+        var page1 = await (await client.GetAsync($"{Base}?page=1&pageSize=1"))
+            .Content.ReadFromJsonAsync<PagedResult<ClinicResponse>>();
+        var page2 = await (await client.GetAsync($"{Base}?page=2&pageSize=1"))
+            .Content.ReadFromJsonAsync<PagedResult<ClinicResponse>>();
+
+        page1!.Items.Should().HaveCount(1);
+        page2!.Items.Should().HaveCount(1);
+        page2.Page.Should().Be(2);
+        page1.Items[0].Id.Should().NotBe(page2.Items[0].Id);
+    }
+
+    [Fact]
+    public async Task ListClinics_PageSizeAbove100_ClampsTo100()
+    {
+        var client = await Client();
+
+        var response = await client.GetAsync($"{Base}?page=1&pageSize=500");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var paged = await response.Content.ReadFromJsonAsync<PagedResult<ClinicResponse>>();
+        paged!.PageSize.Should().Be(100);
     }
 
     private static async Task<ClinicResponse> CreateClinicAsync(HttpClient client, string name)

@@ -1,3 +1,4 @@
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Persistence;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
@@ -8,7 +9,7 @@ namespace HouseCenter.Api.Features.WorkRoutes;
 
 public interface IWorkRouteService
 {
-    Task<Result<List<WorkRouteResponse>>> ListAsync(CancellationToken ct);
+    Task<Result<PagedResult<WorkRouteResponse>>> ListAsync(PageQuery paging, CancellationToken ct);
     Task<Result<WorkRouteResponse>> GetByIdAsync(Guid id, CancellationToken ct);
     Task<Result<WorkRouteResponse>> CreateAsync(CreateWorkRouteRequest request, CancellationToken ct);
     Task<Result<WorkRouteResponse>> UpdateAsync(Guid id, UpdateWorkRouteRequest request, CancellationToken ct);
@@ -21,18 +22,21 @@ public sealed class WorkRouteService(
 {
     private static readonly Error NotFound = Error.NotFound("workroutes.not_found", "Work route not found");
 
-    public async Task<Result<List<WorkRouteResponse>>> ListAsync(CancellationToken ct)
+    public async Task<Result<PagedResult<WorkRouteResponse>>> ListAsync(PageQuery paging, CancellationToken ct)
     {
         // Fetch-then-map (LOAD-BEARING): the enum->string[] weekday expansion in ToResponse
-        // cannot translate to SQL, so this can no longer project inside the EF .Select — load
-        // entities (owned JSON Destinations included automatically) then map in memory.
-        var workRoutes = await db.WorkRoutes
+        // cannot translate to SQL, so this can no longer project inside the EF .Select — paginate
+        // the ENTITY query first (Skip/Take over WorkRoute), THEN map .Items to WorkRouteResponse
+        // in memory, preserving Page/PageSize/TotalCount from the entity-level paged result.
+        var entityPage = await db.WorkRoutes
             .AsNoTracking()
             .Include(w => w.Clinic)
             .OrderBy(w => w.RouteName)
-            .ToListAsync(ct);
+            .ToPagedResultAsync(paging, ct);
 
-        return workRoutes.Select(w => ToResponse(w, w.Clinic.Name)).ToList();
+        var items = entityPage.Items.Select(w => ToResponse(w, w.Clinic.Name)).ToList();
+
+        return new PagedResult<WorkRouteResponse>(items, entityPage.Page, entityPage.PageSize, entityPage.TotalCount);
     }
 
     public async Task<Result<WorkRouteResponse>> GetByIdAsync(Guid id, CancellationToken ct)

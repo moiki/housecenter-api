@@ -1,3 +1,4 @@
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Common.Validation;
 using HouseCenter.Api.Domain.Constants;
@@ -10,8 +11,8 @@ public static class CollaboratorEndpoints
     {
         var group = app.MapGroup("/collaborators").WithTags("Collaborators").RequireAuthorization();
 
-        group.MapGet("/", async (ICollaboratorService service, CancellationToken ct) =>
-                (await service.ListAsync(ct)).ToHttpResult())
+        group.MapGet("/", async ([AsParameters] PageQuery paging, ICollaboratorService service, CancellationToken ct) =>
+                (await service.ListAsync(paging, ct)).ToHttpResult())
             .WithName("ListCollaborators");
 
         group.MapGet("/{id:guid}", async (Guid id, ICollaboratorService service, CancellationToken ct) =>

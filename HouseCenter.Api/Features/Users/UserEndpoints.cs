@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Common.Validation;
 using HouseCenter.Api.Domain.Constants;
@@ -12,8 +13,8 @@ public static class UserEndpoints
         // Group-level authorization: every endpoint here requires at least a valid token
         var group = app.MapGroup("/users").WithTags("Users").RequireAuthorization();
 
-        group.MapGet("/", async (IUserService usersService, CancellationToken ct) =>
-                (await usersService.ListAsync(ct)).ToHttpResult())
+        group.MapGet("/", async ([AsParameters] PageQuery paging, IUserService usersService, CancellationToken ct) =>
+                (await usersService.ListAsync(paging, ct)).ToHttpResult())
             .WithName("ListUsers");
 
         group.MapGet("/{id:guid}", async (Guid id, IUserService usersService, CancellationToken ct) =>

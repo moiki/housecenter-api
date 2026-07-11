@@ -1,3 +1,4 @@
+using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Common.Validation;
 using HouseCenter.Api.Domain.Constants;
@@ -10,8 +11,8 @@ public static class WorkRouteEndpoints
     {
         var group = app.MapGroup("/workroutes").WithTags("WorkRoutes").RequireAuthorization();
 
-        group.MapGet("/", async (IWorkRouteService service, CancellationToken ct) =>
-                (await service.ListAsync(ct)).ToHttpResult())
+        group.MapGet("/", async ([AsParameters] PageQuery paging, IWorkRouteService service, CancellationToken ct) =>
+                (await service.ListAsync(paging, ct)).ToHttpResult())
             .WithName("ListWorkRoutes");
 
         group.MapGet("/{id:guid}", async (Guid id, IWorkRouteService service, CancellationToken ct) =>
