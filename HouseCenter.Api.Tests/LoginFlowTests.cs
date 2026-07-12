@@ -5,6 +5,7 @@ using FluentAssertions;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Auth;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -46,6 +47,73 @@ public sealed class LoginFlowTests(ApiFactory factory)
             new LoginRequest("not-an-email", "whatever", DeviceId, null, DevicePlatform.Web));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // PR2 (device-bound-sessions, R10, verify WARNING 1 closeout): "A request missing
+    // deviceId MUST fail validation with 400." LoginRequestValidator.RuleFor(x => x.DeviceId)
+    // is NotEmpty() — an empty string is the JSON-representable form of "missing" for a
+    // non-nullable string field, and is what NotEmpty() actually enforces.
+    [Fact]
+    public async Task Login_MissingDeviceId_Returns400ValidationProblem()
+    {
+        var response = await _client.PostAsJsonAsync("/auth/login",
+            new LoginRequest(ApiFactory.OwnerEmail, ApiFactory.OwnerPassword, string.Empty, null, DevicePlatform.Web));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        problem.Should().NotBeNull();
+        problem!.Errors.Should().ContainKey(nameof(LoginRequest.DeviceId));
+    }
+
+    // PR2 (device-bound-sessions, R10): LoginRequestValidator.RuleFor(x => x.Platform).IsInEnum().
+    // DevicePlatform serializes as a JSON string name (Program.cs registers a global
+    // JsonStringEnumConverter), but that converter's default `allowIntegerValues: true` still
+    // lets an out-of-range NUMBER through model binding as an undefined enum value (e.g.
+    // (DevicePlatform)999) without throwing — so raw JSON with an out-of-range integer is the
+    // way to reach IsInEnum() as a validation failure rather than a JSON-deserialization
+    // exception. Sending an unrecognized STRING (e.g. "Toaster") would instead fail during
+    // body deserialization before the validator ever runs, which is a different failure mode
+    // than what R10 (validator-level 400) is testing.
+    [Fact]
+    public async Task Login_InvalidPlatform_Returns400ValidationProblem()
+    {
+        var payload = new
+        {
+            Email = ApiFactory.OwnerEmail,
+            Password = ApiFactory.OwnerPassword,
+            DeviceId,
+            DeviceName = (string?)null,
+            Platform = 999
+        };
+
+        var response = await _client.PostAsJsonAsync("/auth/login", payload);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        problem.Should().NotBeNull();
+        problem!.Errors.Should().ContainKey(nameof(LoginRequest.Platform));
+    }
+
+    // PR2 (device-bound-sessions, R10): RefreshRequestValidator.RuleFor(x => x.DeviceId) is
+    // NotEmpty() too — same shape of proof as the login case above, for /auth/refresh.
+    [Fact]
+    public async Task Refresh_MissingDeviceId_Returns400ValidationProblem()
+    {
+        var tokens = await LoginAsOwnerAsync();
+
+        var response = await _client.PostAsJsonAsync("/auth/refresh",
+            new RefreshRequest(tokens.RefreshToken, string.Empty));
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.Content.Headers.ContentType?.MediaType.Should().Be("application/problem+json");
+
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        problem.Should().NotBeNull();
+        problem!.Errors.Should().ContainKey(nameof(RefreshRequest.DeviceId));
     }
 
     [Fact]
