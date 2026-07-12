@@ -60,3 +60,11 @@ public sealed class PasswordResetValidator : AbstractValidator<PasswordResetDto>
             .WithMessage("Password must be at least 8 characters long");
     }
 }
+
+public sealed class LogoutRequestValidator : AbstractValidator<LogoutRequest>
+{
+    public LogoutRequestValidator()
+    {
+        RuleFor(x => x.DeviceId).NotEmpty();
+    }
+}

@@ -23,6 +23,30 @@ public interface IUserSessionService
     /// rotates (returning the user + a new raw token) or revokes the session and fails.</summary>
     Task<Result<(User User, string RefreshToken)>> RotateAsync(
         string rawRefreshToken, string deviceId, CancellationToken ct);
+
+    /// <summary>Revokes the caller's active session for one device — POST /auth/logout.
+    /// Idempotent: a no-op if no active session exists for that device (mirrors
+    /// RemovePushSubscription's idempotent-delete-of-own-resource convention).</summary>
+    Task RevokeDeviceAsync(Guid userId, string deviceId, CancellationToken ct);
+
+    /// <summary>Lists the caller's own active sessions — GET /auth/sessions. AsNoTracking +
+    /// inline projection; MUST NEVER include CurrentTokenHash/PreviousTokenHash (R9).</summary>
+    Task<IReadOnlyList<SessionResponse>> GetActiveSessionsAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Revokes one session by id, strictly scoped to the caller —
+    /// DELETE /auth/sessions/{id}. A foreign or nonexistent id returns NotFound, never
+    /// Forbidden (anti-enumeration, R7) — mirrors MarkNotificationReadHandler's pattern.</summary>
+    Task<Result> RevokeSessionByIdAsync(Guid userId, Guid sessionId, CancellationToken ct);
+
+    /// <summary>Revokes every active session belonging to the caller —
+    /// POST /auth/sessions/revoke-all (R7).</summary>
+    Task RevokeAllAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Bulk-revokes every active session for the user as part of a password reset.
+    /// Called only by AuthService.ResetPasswordAsync, never a direct endpoint (R8) — the
+    /// explicit, auditable replacement for the old lazy `prv`-comparison-kills-refresh
+    /// behavior (opaque sessions are no longer tied to `prv` at all).</summary>
+    Task RevokeAllForPasswordResetAsync(Guid userId, CancellationToken ct);
 }
 
 public sealed class UserSessionService(
@@ -139,6 +163,66 @@ public sealed class UserSessionService(
         await db.SaveChangesAsync(ct);
 
         return (session.User, newRawToken);
+    }
+
+    public async Task RevokeDeviceAsync(Guid userId, string deviceId, CancellationToken ct)
+    {
+        // Global soft-delete filter already scopes this to active rows — no explicit
+        // IsActive check needed (CLAUDE.md gotcha: that guard would be dead code).
+        var session = await db.UserSessions
+            .SingleOrDefaultAsync(s => s.UserId == userId && s.DeviceId == deviceId, ct);
+
+        if (session is not null)
+            await RevokeAsync(session, RevokedReason.UserLogout, timeProvider.GetUtcNow().UtcDateTime, ct);
+    }
+
+    public async Task<IReadOnlyList<SessionResponse>> GetActiveSessionsAsync(Guid userId, CancellationToken ct) =>
+        await db.UserSessions
+            .AsNoTracking()
+            .Where(s => s.UserId == userId)
+            .Select(s => new SessionResponse(
+                s.Id, s.DeviceId, s.DeviceName, s.Platform, s.LastUsedAt, s.CreatedDate))
+            .ToListAsync(ct);
+
+    public async Task<Result> RevokeSessionByIdAsync(Guid userId, Guid sessionId, CancellationToken ct)
+    {
+        // Scoped to (Id, UserId) — a foreign or nonexistent id returns NotFound, never
+        // Forbidden (anti-enumeration, R7; same pattern as MarkNotificationReadHandler).
+        var session = await db.UserSessions
+            .SingleOrDefaultAsync(s => s.Id == sessionId && s.UserId == userId, ct);
+
+        if (session is null)
+            return Error.NotFound("sessions.not_found", "Session not found");
+
+        await RevokeAsync(session, RevokedReason.UserRevoked, timeProvider.GetUtcNow().UtcDateTime, ct);
+        return Result.Success();
+    }
+
+    public Task RevokeAllAsync(Guid userId, CancellationToken ct) =>
+        RevokeAllActiveSessionsAsync(userId, RevokedReason.UserRevoked, ct);
+
+    public Task RevokeAllForPasswordResetAsync(Guid userId, CancellationToken ct) =>
+        RevokeAllActiveSessionsAsync(userId, RevokedReason.PasswordReset, ct);
+
+    private async Task RevokeAllActiveSessionsAsync(Guid userId, RevokedReason reason, CancellationToken ct)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        // Tracked read + loop (not ExecuteUpdateAsync): keeps this unit-testable against EF
+        // InMemory (which doesn't support bulk ExecuteUpdate/ExecuteDelete translation) and
+        // matches this file's existing tracked-mutate-then-SaveChanges style.
+        var sessions = await db.UserSessions.Where(s => s.UserId == userId).ToListAsync(ct);
+        if (sessions.Count == 0)
+            return;
+
+        foreach (var session in sessions)
+        {
+            session.IsActive = false;
+            session.RevokedAt = now;
+            session.RevokedReason = reason;
+        }
+
+        await db.SaveChangesAsync(ct);
     }
 
     // ExpiresAt = min(now + sliding, absolute) — one check (`now < ExpiresAt`) enforces

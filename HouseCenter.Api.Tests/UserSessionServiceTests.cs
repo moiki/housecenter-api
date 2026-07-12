@@ -31,6 +31,18 @@ public sealed class UserSessionServiceTests : IAsyncLifetime, IDisposable
         Address = "N/A"
     };
 
+    // Second user — used by the PR3 session-management tests to prove self-scoping
+    // (list/revoke-device/revoke-by-id/revoke-all/password-reset-revoke must never touch
+    // another user's sessions).
+    private readonly User _otherUser = new()
+    {
+        FirstName = "Other",
+        LastName = "User",
+        Email = "session-test-other@test.local",
+        HashedPassword = "irrelevant-for-these-tests",
+        Address = "N/A"
+    };
+
     public UserSessionServiceTests()
     {
         var dbOptions = new DbContextOptionsBuilder<HouseCenterDbContext>()
@@ -51,7 +63,7 @@ public sealed class UserSessionServiceTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        _db.Users.Add(_user);
+        _db.Users.AddRange(_user, _otherUser);
         await _db.SaveChangesAsync();
     }
 
@@ -276,5 +288,147 @@ public sealed class UserSessionServiceTests : IAsyncLifetime, IDisposable
 
         var newTokenResult = await _sut.RotateAsync(t2, "device-A", CancellationToken.None);
         newTokenResult.IsSuccess.Should().BeTrue();
+    }
+
+    // ─── PR3: session management + reset (R7, R8, R9) ──────────────────────────
+
+    [Fact]
+    public async Task GetActiveSessions_ReturnsOnlyCallersSessions_NeverAnotherUsers()
+    {
+        await _sut.CreateOrRotateOnLoginAsync(_user, "device-A", "My Phone", DevicePlatform.Android, CancellationToken.None);
+        await _sut.CreateOrRotateOnLoginAsync(_user, "device-B", "My Laptop", DevicePlatform.Web, CancellationToken.None);
+        await _sut.CreateOrRotateOnLoginAsync(_otherUser, "device-C", "Their Phone", DevicePlatform.iOS, CancellationToken.None);
+
+        var sessions = await _sut.GetActiveSessionsAsync(_user.Id, CancellationToken.None);
+
+        sessions.Should().HaveCount(2);
+        sessions.Select(s => s.DeviceId).Should().BeEquivalentTo(["device-A", "device-B"]);
+    }
+
+    [Fact]
+    public async Task RevokeDevice_RevokesOnlyThatUserAndDeviceSession_OtherSessionsUnaffected()
+    {
+        var deviceAToken = await _sut.CreateOrRotateOnLoginAsync(_user, "device-A", null, DevicePlatform.Android, CancellationToken.None);
+        var deviceBToken = await _sut.CreateOrRotateOnLoginAsync(_user, "device-B", null, DevicePlatform.Web, CancellationToken.None);
+        var otherUserToken = await _sut.CreateOrRotateOnLoginAsync(_otherUser, "device-A", null, DevicePlatform.iOS, CancellationToken.None);
+
+        await _sut.RevokeDeviceAsync(_user.Id, "device-A", CancellationToken.None);
+
+        var revokedSession = await _db.UserSessions.IgnoreQueryFilters()
+            .SingleAsync(s => s.UserId == _user.Id && s.DeviceId == "device-A");
+        revokedSession.IsActive.Should().BeFalse();
+        revokedSession.RevokedReason.Should().Be(RevokedReason.UserLogout);
+
+        // The caller's other device is untouched.
+        (await _sut.RotateAsync(deviceBToken, "device-B", CancellationToken.None)).IsSuccess.Should().BeTrue();
+
+        // Same deviceId for a DIFFERENT user is a completely separate row — untouched.
+        (await _sut.RotateAsync(otherUserToken, "device-A", CancellationToken.None)).IsSuccess.Should().BeTrue();
+
+        // The revoked device's token no longer works.
+        (await _sut.RotateAsync(deviceAToken, "device-A", CancellationToken.None)).IsFailure.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RevokeDevice_NoActiveSessionForThatDevice_IsANoOp()
+    {
+        // Idempotent: logging out a device that has no active session must not throw
+        // and must not touch any other session.
+        var otherDeviceToken = await _sut.CreateOrRotateOnLoginAsync(_user, "device-B", null, DevicePlatform.Web, CancellationToken.None);
+
+        await _sut.RevokeDeviceAsync(_user.Id, "device-never-logged-in", CancellationToken.None);
+
+        (await _sut.RotateAsync(otherDeviceToken, "device-B", CancellationToken.None)).IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RevokeAll_RevokesEveryActiveSessionForCaller_OtherUsersSessionsUnaffected()
+    {
+        await _sut.CreateOrRotateOnLoginAsync(_user, "device-A", null, DevicePlatform.Android, CancellationToken.None);
+        await _sut.CreateOrRotateOnLoginAsync(_user, "device-B", null, DevicePlatform.Web, CancellationToken.None);
+        var otherUserToken = await _sut.CreateOrRotateOnLoginAsync(_otherUser, "device-C", null, DevicePlatform.iOS, CancellationToken.None);
+
+        await _sut.RevokeAllAsync(_user.Id, CancellationToken.None);
+
+        var callerSessions = await _db.UserSessions.IgnoreQueryFilters()
+            .Where(s => s.UserId == _user.Id).ToListAsync();
+        callerSessions.Should().HaveCount(2);
+        callerSessions.Should().OnlyContain(s => !s.IsActive && s.RevokedReason == RevokedReason.UserRevoked);
+
+        // The other user is completely unaffected.
+        (await _sut.RotateAsync(otherUserToken, "device-C", CancellationToken.None)).IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RevokeSessionById_OwnedSession_RevokesAndReturnsSuccess()
+    {
+        await _sut.CreateOrRotateOnLoginAsync(_user, "device-A", null, DevicePlatform.Android, CancellationToken.None);
+        var sessionId = (await _db.UserSessions.AsNoTracking()
+            .SingleAsync(s => s.UserId == _user.Id && s.DeviceId == "device-A")).Id;
+
+        var result = await _sut.RevokeSessionByIdAsync(_user.Id, sessionId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var session = await _db.UserSessions.IgnoreQueryFilters().SingleAsync(s => s.Id == sessionId);
+        session.IsActive.Should().BeFalse();
+        session.RevokedReason.Should().Be(RevokedReason.UserRevoked);
+    }
+
+    [Fact]
+    public async Task RevokeSessionById_ForeignId_IsANoOpAndReturnsNotFound_NeverForbidden()
+    {
+        // Anti-enumeration (R7): a session belonging to another user must be reported as
+        // NotFound (so the endpoint maps it to 404, never 403) and must be left untouched.
+        await _sut.CreateOrRotateOnLoginAsync(_user, "device-A", null, DevicePlatform.Android, CancellationToken.None);
+        var otherUserToken = await _sut.CreateOrRotateOnLoginAsync(_otherUser, "device-C", null, DevicePlatform.iOS, CancellationToken.None);
+        var otherSessionId = (await _db.UserSessions.AsNoTracking()
+            .SingleAsync(s => s.UserId == _otherUser.Id && s.DeviceId == "device-C")).Id;
+
+        var result = await _sut.RevokeSessionByIdAsync(_user.Id, otherSessionId, CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Type.Should().Be(ErrorType.NotFound);
+
+        // The foreign session is completely untouched.
+        (await _sut.RotateAsync(otherUserToken, "device-C", CancellationToken.None)).IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RevokeSessionById_NonexistentId_ReturnsNotFound()
+    {
+        var result = await _sut.RevokeSessionByIdAsync(_user.Id, Guid.NewGuid(), CancellationToken.None);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error!.Type.Should().Be(ErrorType.NotFound);
+    }
+
+    [Fact]
+    public async Task RevokeAllForPasswordReset_RevokesEveryDeviceForThatUser_WithPasswordResetReason()
+    {
+        var deviceAToken = await _sut.CreateOrRotateOnLoginAsync(_user, "device-A", null, DevicePlatform.Android, CancellationToken.None);
+        var deviceBToken = await _sut.CreateOrRotateOnLoginAsync(_user, "device-B", null, DevicePlatform.Web, CancellationToken.None);
+        var otherUserToken = await _sut.CreateOrRotateOnLoginAsync(_otherUser, "device-C", null, DevicePlatform.iOS, CancellationToken.None);
+
+        await _sut.RevokeAllForPasswordResetAsync(_user.Id, CancellationToken.None);
+
+        var callerSessions = await _db.UserSessions.IgnoreQueryFilters()
+            .Where(s => s.UserId == _user.Id).ToListAsync();
+        callerSessions.Should().HaveCount(2);
+        callerSessions.Should().OnlyContain(s => !s.IsActive && s.RevokedReason == RevokedReason.PasswordReset);
+
+        // Both of the caller's devices are dead post-reset (R8).
+        (await _sut.RotateAsync(deviceAToken, "device-A", CancellationToken.None)).IsFailure.Should().BeTrue();
+        (await _sut.RotateAsync(deviceBToken, "device-B", CancellationToken.None)).IsFailure.Should().BeTrue();
+
+        // A password reset for one user must never touch another user's sessions.
+        (await _sut.RotateAsync(otherUserToken, "device-C", CancellationToken.None)).IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RevokeAllForPasswordReset_NoActiveSessions_IsANoOpAndDoesNotThrow()
+    {
+        var act = () => _sut.RevokeAllForPasswordResetAsync(_user.Id, CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
     }
 }

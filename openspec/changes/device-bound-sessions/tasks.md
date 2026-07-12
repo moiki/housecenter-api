@@ -118,20 +118,36 @@ references repo-wide.
 
 ## Phase 3: Session Management + Reset — PR3 (~185 lines)
 
-- [ ] 3.1 `Features/Auth/UserSessionService.cs` — add `RevokeDeviceAsync(userId, deviceId)`,
+- [x] 3.1 `Features/Auth/UserSessionService.cs` — add `RevokeDeviceAsync(userId, deviceId)`,
       `ListAsync(userId)` (`AsNoTracking()` + inline `new SessionResponse(...)` projection),
       `RevokeByIdAsync(userId, sessionId)` (`NotFound` for foreign/missing id, never
       `Forbidden`), `RevokeAllAsync(userId)`, `RevokeAllForPasswordResetAsync(userId)`
       (R7, R8, R9)
-- [ ] 3.2 `Features/Auth/AuthDtos.cs` — `LogoutRequest(DeviceId)`, `SessionResponse(Id,
+      — implemented as `GetActiveSessionsAsync`/`RevokeSessionByIdAsync` per this run's
+      explicit apply-time instruction (functionally identical to `ListAsync`/`RevokeByIdAsync`;
+      `RevokeSessionByIdAsync` still returns `Result` — NotFound on foreign/missing id — to
+      stay consistent with every other Auth-endpoint's `.ToHttpResult()` convention). Also
+      added unit tests (pulled forward from PR4 per this run's strict-TDD override, same
+      precedent as PR2's task 2.11): list-self-scoped, revoke-device-self-scoped +
+      idempotent-no-op, revoke-all-self-scoped, revoke-by-id-owned/foreign/nonexistent,
+      password-reset-bulk-revoke-self-scoped + no-op-when-no-sessions (9 new tests in
+      `UserSessionServiceTests.cs`, alongside PR2's 10 — HTTP-level equivalents remain in PR4).
+- [x] 3.2 `Features/Auth/AuthDtos.cs` — `LogoutRequest(DeviceId)`, `SessionResponse(Id,
       DeviceId, DeviceName, Platform, LastUsedAt, CreatedDate)` — no hash fields (R9)
-- [ ] 3.3 `Features/Auth/AuthValidators.cs` — `LogoutRequestValidator`
-- [ ] 3.4 `Features/Auth/AuthEndpoints.cs` — `POST /auth/logout`, `GET /auth/sessions`,
+- [x] 3.3 `Features/Auth/AuthValidators.cs` — `LogoutRequestValidator`
+- [x] 3.4 `Features/Auth/AuthEndpoints.cs` — `POST /auth/logout`, `GET /auth/sessions`,
       `DELETE /auth/sessions/{id:guid}`, `POST /auth/sessions/revoke-all`; all bare
       `.RequireAuthorization()`, `userId` from `ClaimTypes.NameIdentifier`, strictly
       self-scoped (R7)
-- [ ] 3.5 `Features/Auth/AuthService.cs` — `ResetPasswordAsync` calls
-      `RevokeAllForPasswordResetAsync` immediately after the existing `prv` bump (R8)
+- [x] 3.5 `Features/Auth/AuthService.cs` — `ResetPasswordAsync` calls
+      `RevokeAllForPasswordResetAsync` immediately after the existing `prv` bump (R8); fixed
+      the stale `PasswordRecoveryVersion++` comment to reflect that opaque sessions are no
+      longer tied to `prv` (PR2 already made refresh opaque) — the explicit bulk-revoke is
+      what enforces R8 now
+- [x] 3.6 (trivial cleanup, in-scope per apply instructions) `Options/JwtOptions.cs` +
+      `appsettings.json` — removed the now-dead `RefreshTokenExpiryDays` (unused since PR2
+      made refresh opaque/DB-driven TTL via `UserSessionOptions`); confirmed zero remaining
+      references repo-wide via grep before removing
 
 **PR3 done when:** `dotnet build` clean, all 4 endpoints self-scoped (foreign/nonexistent id →
 404, never 403), `GET /auth/sessions` response contains zero hash fields.

@@ -41,3 +41,15 @@ public sealed record PasswordResetRequestDto(string Email);
 public sealed record PasswordResetDto(string Token, string NewPassword);
 
 public sealed record InvitationValidationResponse(string Email, string RoleName);
+
+public sealed record LogoutRequest(string DeviceId);
+
+// GET /auth/sessions response — deliberately excludes CurrentTokenHash/PreviousTokenHash
+// and any raw token value (spec R9). Never add a hash field here.
+public sealed record SessionResponse(
+    Guid Id,
+    string DeviceId,
+    string? DeviceName,
+    DevicePlatform Platform,
+    DateTime LastUsedAt,
+    DateTime CreatedDate);

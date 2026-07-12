@@ -47,6 +47,50 @@ public static class AuthEndpoints
             .WithValidation<PasswordResetDto>()
             .WithName("ResetPassword");
 
+        // Session management (R7) — all self-scoped via ClaimTypes.NameIdentifier, bare
+        // .RequireAuthorization() (no extra policy needed, same shape as GET /auth/me).
+        // These call IUserSessionService directly (design.md: it's the single place the
+        // DbContext is mutated for sessions) rather than routing through IAuthService.
+        group.MapPost("/logout", async (LogoutRequest request, ClaimsPrincipal principal,
+                IUserSessionService sessions, CancellationToken ct) =>
+            {
+                var userId = Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                await sessions.RevokeDeviceAsync(userId, request.DeviceId, ct);
+                return Results.NoContent();
+            })
+            .RequireAuthorization()
+            .WithValidation<LogoutRequest>()
+            .WithName("Logout");
+
+        group.MapGet("/sessions", async (ClaimsPrincipal principal,
+                IUserSessionService sessions, CancellationToken ct) =>
+            {
+                var userId = Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                return Results.Ok(await sessions.GetActiveSessionsAsync(userId, ct));
+            })
+            .RequireAuthorization()
+            .WithName("GetSessions");
+
+        group.MapDelete("/sessions/{id:guid}", async (Guid id, ClaimsPrincipal principal,
+                IUserSessionService sessions, CancellationToken ct) =>
+            {
+                var userId = Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                // NotFound (not Forbidden) for a foreign or nonexistent id — anti-enumeration.
+                return (await sessions.RevokeSessionByIdAsync(userId, id, ct)).ToHttpResult();
+            })
+            .RequireAuthorization()
+            .WithName("RevokeSession");
+
+        group.MapPost("/sessions/revoke-all", async (ClaimsPrincipal principal,
+                IUserSessionService sessions, CancellationToken ct) =>
+            {
+                var userId = Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                await sessions.RevokeAllAsync(userId, ct);
+                return Results.NoContent();
+            })
+            .RequireAuthorization()
+            .WithName("RevokeAllSessions");
+
         return app;
     }
 }

@@ -152,8 +152,13 @@ public sealed class AuthService(
             return Error.Unauthorized("auth.reset_token_used", "Reset token has already been used");
 
         user.HashedPassword = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-        user.PasswordRecoveryVersion++; // invalidates this reset token AND all outstanding refresh tokens
+        // One-shot: invalidates this reset JWT and gates future access-token issuance via
+        // `prv`. Opaque refresh sessions are NOT tied to `prv` anymore — the explicit
+        // bulk-revoke below is what enforces R8, immediately and auditably.
+        user.PasswordRecoveryVersion++;
         await db.SaveChangesAsync(ct);
+
+        await userSessionService.RevokeAllForPasswordResetAsync(user.Id, ct);
 
         logger.LogInformation("Password reset completed for user {UserId}", userId);
 
