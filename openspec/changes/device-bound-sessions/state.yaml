@@ -1,0 +1,49 @@
+change: device-bound-sessions
+artifact_store: openspec
+execution_mode: auto
+delivery_strategy: ask-on-risk
+created: 2026-07-11
+phase: tasks
+status: planning-complete
+completed_phases: [explore, propose, spec, design, tasks]
+chain_strategy: pending          # orchestrator MUST ask user (stacked-to-main vs feature-branch-chain) before sdd-apply
+chain_slice: null
+current_slice: null
+decision_needed_before_apply: true
+notes: |
+  2026-07-11 — Planning fast-forward (auto mode) complete for SDD change #1 of the
+  HouseCenter Mobile plan. This is the API-side prerequisite: replace the stateless 7-day
+  refresh JWT with persisted, device-bound sessions (opaque SHA-256-hashed rotating tokens,
+  reuse detection + ~30s grace window, per-device + all-device revocation, sliding-60d /
+  absolute-180d TTL). Broader mobile plan: ~/.claude/plans/hola-analiza-los-proyectos-frolicking-puzzle.md.
+
+  Artifacts produced (openspec + engram):
+  - explore  -> exploration.md              (engram obs 508) — high confidence, resolved token
+                mechanics to OPAQUE (not JWT-with-sid).
+  - propose  -> proposal.md                 (engram obs 509) — 5 open decisions resolved:
+                delete RefreshSecret=yes; introduce TimeProvider=yes; grace=30s;
+                no legacy dual-accept (one-time forced re-login); new DevicePlatform enum.
+  - spec     -> spec.md                      (engram obs 510) — R1-R10, 14 GIVEN/WHEN/THEN scenarios.
+  - design   -> design.md                    (engram obs 511) — 8 architecture decisions w/ rationale,
+                5 sequence diagrams, rotation algorithm, TimeProvider/FakeTimeProvider wiring, rollback.
+  - tasks    -> tasks.md                     (engram sdd/device-bound-sessions/tasks) — Review Workload
+                Forecast: ~1,300-1,350 hand-written lines, 400-budget risk HIGH, 4 chained PRs.
+
+  Review Workload Guard: Chained PRs recommended = Yes; delivery_strategy = ask-on-risk =>
+  STOP before sdd-apply. User must confirm (a) proceed to implementation, and (b) chain
+  strategy (stacked-to-main vs feature-branch-chain), and (c) issue-first PR gate.
+
+  4-PR plan (stacked, dependency order):
+  - PR1 Foundation (~330): UserSession entity + DevicePlatform/RevokedReason enums + config
+        (filtered-unique index on CurrentTokenHash) + DbSet + migration AddUserSessions +
+        UserSessionOptions + IRefreshTokenGenerator/ITokenHasher + TimeProvider.System.  (R1,R2,R6)
+  - PR2 Login/Refresh rewrite (~365): UserSessionService (create/rotate, 6-branch guard),
+        AuthService rewire, DTO+validator additions (deviceId/deviceName/platform),
+        delete JwtOptions.RefreshSecret (4 touch points).  (R1-R6,R10)
+  - PR3 Session mgmt + reset (~185): GET /auth/sessions, DELETE /auth/sessions/{id},
+        POST /auth/logout, POST /auth/sessions/revoke-all, ResetPasswordAsync bulk-revoke.  (R7,R8,R9)
+  - PR4 Tests (~430): extend LoginFlowTests + SessionManagementTests/SessionTtlTests,
+        Microsoft.Extensions.TimeProvider.Testing, dedicated FakeTimeProvider ApiFactory instance.  (R1-R10)
+
+  strict_tdd:true — tests batched as PR4 (deliberate reviewable-slice exception, proposal-approved).
+  Ready for sdd-apply pending the guard decision above.
