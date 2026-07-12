@@ -166,7 +166,8 @@ public sealed class AttachmentTests(ApiFactory factory)
         var email = $"{roleName.ToLower()}-{Guid.NewGuid():N}@test.local";
         var userId = await SeedUserAsync(roleName, email);
         var client = factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/auth/login", new LoginRequest(email, Password));
+        var response = await client.PostAsJsonAsync("/auth/login",
+            new LoginRequest(email, Password, "test-device", null, DevicePlatform.Web));
         response.EnsureSuccessStatusCode();
         var tokens = await response.Content.ReadFromJsonAsync<TokenPairResponse>();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);

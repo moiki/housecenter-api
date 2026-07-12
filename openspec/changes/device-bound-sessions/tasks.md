@@ -79,30 +79,38 @@ auth flows (`LoginFlowTests.cs` stays green unmodified).
 
 ## Phase 2: Login/Refresh Rewrite — PR2 (~365 lines)
 
-- [ ] 2.1 `Features/Auth/AuthDtos.cs` — add `DeviceId` (required), `DeviceName?`, `Platform` to
+- [x] 2.1 `Features/Auth/AuthDtos.cs` — add `DeviceId` (required), `DeviceName?`, `Platform` to
       `LoginRequest` / `SignupRequest` / `RefreshRequest` (R10)
-- [ ] 2.2 `Features/Auth/AuthValidators.cs` — `NotEmpty()` on `DeviceId`, `MaximumLength(200)`
+- [x] 2.2 `Features/Auth/AuthValidators.cs` — `NotEmpty()` on `DeviceId`, `MaximumLength(200)`
       on `DeviceName`, `IsInEnum()` on `Platform` across the 3 validators (R10)
-- [ ] 2.3 `Features/Auth/UserSessionService.cs` (new) — `IUserSessionService` /
+- [x] 2.3 `Features/Auth/UserSessionService.cs` (new) — `IUserSessionService` /
       `UserSessionService`: `CreateOrRotateOnLoginAsync` — revoke existing active
       `(UserId, DeviceId)` row if present, insert fresh row, `Current=hash(T)`,
       `AbsoluteExpiresAt=now+180d`, `ExpiresAt=clamp` (R2, R6)
-- [ ] 2.4 Same file — `RotateAsync`: tracked lookup `Current==hash || Previous==hash` incl.
+- [x] 2.4 Same file — `RotateAsync`: tracked lookup `Current==hash || Previous==hash` incl.
       `User.Roles`; guard order — null session → 401; deviceId mismatch → revoke+401;
       `now>=ExpiresAt` → revoke(`ExpiredAbsolute`)+401; stale Previous
       (`now>PreviousTokenExpiresAt`) → revoke(`ReuseDetected`)+401; else rotate
       (`Previous=Current`, `PreviousExpiresAt=now+grace`, `Current=hash(T')`,
       `LastUsedAt=now`, `ExpiresAt=clamp(now)`) (R1, R3, R4, R5, R6)
-- [ ] 2.5 `Features/Auth/AuthService.cs` — `LoginAsync`/`SignupAsync` call
+- [x] 2.5 `Features/Auth/AuthService.cs` — `LoginAsync`/`SignupAsync` call
       `CreateOrRotateOnLoginAsync`; `RefreshAsync` delegates entirely to `RotateAsync`, still
       mints the access JWT via unchanged `ITokenService` (R2, R3)
-- [ ] 2.6 `Features/Auth/TokenService.cs` — remove `CreateRefreshToken`, the `Refresh` case in
+- [x] 2.6 `Features/Auth/TokenService.cs` — remove `CreateRefreshToken`, the `Refresh` case in
       `SigningKeyFor`, the `TokenKind.Refresh` enum member (R1)
-- [ ] 2.7 `Options/JwtOptions.cs` — delete `RefreshSecret` property
-- [ ] 2.8 `Program.cs` — delete the `Jwt:RefreshSecret` `.Validate(...)` lines
-- [ ] 2.9 `appsettings.json` — delete `Jwt:RefreshSecret`; `HouseCenter.Api.Tests/ApiFactory.cs`
+- [x] 2.7 `Options/JwtOptions.cs` — delete `RefreshSecret` property
+- [x] 2.8 `Program.cs` — delete the `Jwt:RefreshSecret` `.Validate(...)` lines
+- [x] 2.9 `appsettings.json` — delete `Jwt:RefreshSecret`; `HouseCenter.Api.Tests/ApiFactory.cs`
       — delete the `["Jwt:RefreshSecret"]` config override
-- [ ] 2.10 `CLAUDE.md` — update the "4 secrets" auth note to 3 (Access / Invitation / Reset)
+- [x] 2.10 `CLAUDE.md` — update the "4 secrets" auth note to 3 (Access / Invitation / Reset)
+- [x] 2.11 (deviated from Phase 4 plan, per this run's explicit override) `HouseCenter.Api.Tests/UserSessionServiceTests.cs` (new) —
+      10 unit tests for `UserSessionService` using EF InMemory + `FakeTimeProvider`: rotate on
+      Current match, grace-window accept, grace-window boundary (+1s past deadline), reuse well
+      after grace, no-match/garbage token (nothing revoked), deviceId mismatch (revoked),
+      sliding TTL extends, sliding clamps to absolute cap, absolute cap enforced (401+revoke),
+      login-upsert supersedes prior session (R1-R6, R2)
+- [x] 2.12 `HouseCenter.Api.Tests/HouseCenter.Api.Tests.csproj` — add
+      `Microsoft.Extensions.TimeProvider.Testing` (pulled forward from task 4.1 to unblock 2.11)
 
 **PR2 done when:** `dotnet build` clean, login/signup persist a `UserSession` row per device,
 refresh rotates + revokes per the guard-order algorithm, zero remaining `RefreshSecret`
@@ -130,13 +138,16 @@ references repo-wide.
 
 ## Phase 4: Tests — PR4 (~430 lines)
 
-- [ ] 4.1 `HouseCenter.Api.Tests/HouseCenter.Api.Tests.csproj` — add
+- [x] 4.1 (done early in PR2, task 2.12 — package was needed to unblock `UserSessionServiceTests`
+      unit tests) `HouseCenter.Api.Tests/HouseCenter.Api.Tests.csproj` — add
       `Microsoft.Extensions.TimeProvider.Testing`
-- [ ] 4.2 `HouseCenter.Api.Tests/ApiFactory.cs` — `CreateAuthenticatedClientAsync` and every
-      `LoginRequest`/`SignupRequest` call site gain `deviceId`/`platform`; add `public
-      FakeTimeProvider Time` swap (`services.RemoveAll<TimeProvider>();
-      services.AddSingleton<TimeProvider>(Time);`) — comment documenting the boundary: drives
-      session TTL only, never JwtBearer's internal clock
+- [ ] 4.2 `HouseCenter.Api.Tests/ApiFactory.cs` — the `deviceId`/`platform` ripple across
+      `CreateAuthenticatedClientAsync` and every `LoginRequest`/`SignupRequest` call site
+      repo-wide was already done in PR2 (breaking DTO change, contained then to keep the full
+      suite green). **Still open for PR4:** add `public FakeTimeProvider Time` swap
+      (`services.RemoveAll<TimeProvider>(); services.AddSingleton<TimeProvider>(Time);`) —
+      comment documenting the boundary: drives session TTL only, never JwtBearer's internal
+      clock
 - [ ] 4.3 New dedicated `ApiFactory`-backed fixture (own instance, **not** the shared
       `[Collection("Api")]`) for TTL tests — avoids `FakeTimeProvider` state bleeding across
       the shared collection

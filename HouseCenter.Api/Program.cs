@@ -54,11 +54,8 @@ try
     builder.Services.AddOptions<JwtOptions>()
         .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
         .Validate(o => !string.IsNullOrWhiteSpace(o.Secret), "Jwt:Secret is required")
-        .Validate(o => !string.IsNullOrWhiteSpace(o.RefreshSecret), "Jwt:RefreshSecret is required")
-        .Validate(o => o.Secret != o.RefreshSecret, "Jwt:Secret and Jwt:RefreshSecret must differ")
         // HS256 needs >=256-bit keys — catch short secrets at startup, not at first sign/login
         .Validate(o => Encoding.UTF8.GetByteCount(o.Secret) >= 32, "Jwt:Secret must be at least 32 bytes (256 bits) for HS256")
-        .Validate(o => Encoding.UTF8.GetByteCount(o.RefreshSecret) >= 32, "Jwt:RefreshSecret must be at least 32 bytes (256 bits) for HS256")
         .Validate(o => Encoding.UTF8.GetByteCount(o.InvitationSecret) >= 32, "Jwt:InvitationSecret must be at least 32 bytes (256 bits) for HS256")
         .Validate(o => Encoding.UTF8.GetByteCount(o.ResetSecret) >= 32, "Jwt:ResetSecret must be at least 32 bytes (256 bits) for HS256")
         .ValidateOnStart();
@@ -151,6 +148,7 @@ try
     builder.Services.AddSingleton<ITokenService, TokenService>();
     builder.Services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
     builder.Services.AddSingleton<ITokenHasher, TokenHasher>();
+    builder.Services.AddScoped<IUserSessionService, UserSessionService>();
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IInvitationService, InvitationService>();
     builder.Services.AddScoped<IUserService, UserService>();

@@ -23,6 +23,7 @@ public interface IAuthService
 public sealed class AuthService(
     HouseCenterDbContext db,
     ITokenService tokenService,
+    IUserSessionService userSessionService,
     IEmailService emailService,
     IOptions<AppOptions> appOptions,
     ILogger<AuthService> logger) : IAuthService
@@ -40,30 +41,17 @@ public sealed class AuthService(
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.HashedPassword))
             return InvalidCredentials;
 
-        return IssueTokenPair(user);
+        return await IssueTokenPairAsync(user, request.DeviceId, request.DeviceName, request.Platform, ct);
     }
 
     public async Task<Result<TokenPairResponse>> RefreshAsync(RefreshRequest request, CancellationToken ct)
     {
-        var principal = await tokenService.ValidateAsync(request.RefreshToken, TokenKind.Refresh);
-        if (principal is null)
-            return Error.Unauthorized("auth.invalid_refresh_token", "Refresh token is invalid or expired");
+        var rotated = await userSessionService.RotateAsync(request.RefreshToken, request.DeviceId, ct);
+        if (rotated.IsFailure)
+            return rotated.Error;
 
-        var userId = Guid.Parse(principal.FindFirstValue(JwtRegisteredClaimNames.Sub)!);
-
-        var user = await db.Users
-            .Include(u => u.Roles)
-            .SingleOrDefaultAsync(u => u.Id == userId && u.IsActive, ct);
-
-        if (user is null)
-            return Error.Unauthorized("auth.user_not_found", "User no longer exists or is inactive");
-
-        // Token rotation guard: a password change bumps the version and kills old refresh tokens
-        var tokenVersion = principal.FindFirstValue(TokenService.PasswordVersionClaim);
-        if (tokenVersion != user.PasswordRecoveryVersion.ToString())
-            return Error.Unauthorized("auth.refresh_token_revoked", "Refresh token has been revoked");
-
-        return IssueTokenPair(user);
+        var (user, refreshToken) = rotated.Value;
+        return new TokenPairResponse(tokenService.CreateAccessToken(user), refreshToken);
     }
 
     public async Task<Result<MeResponse>> MeAsync(Guid userId, CancellationToken ct)
@@ -126,7 +114,7 @@ public sealed class AuthService(
 
         logger.LogInformation("User {Email} signed up via invitation {InvitationId}", user.Email, invitationId);
 
-        return IssueTokenPair(user);
+        return await IssueTokenPairAsync(user, request.DeviceId, request.DeviceName, request.Platform, ct);
     }
 
     public async Task<Result> RequestPasswordResetAsync(PasswordResetRequestDto request, CancellationToken ct)
@@ -172,6 +160,10 @@ public sealed class AuthService(
         return Result.Success();
     }
 
-    private TokenPairResponse IssueTokenPair(User user) =>
-        new(tokenService.CreateAccessToken(user), tokenService.CreateRefreshToken(user));
+    private async Task<TokenPairResponse> IssueTokenPairAsync(
+        User user, string deviceId, string? deviceName, DevicePlatform platform, CancellationToken ct)
+    {
+        var refreshToken = await userSessionService.CreateOrRotateOnLoginAsync(user, deviceId, deviceName, platform, ct);
+        return new TokenPairResponse(tokenService.CreateAccessToken(user), refreshToken);
+    }
 }

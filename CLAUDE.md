@@ -92,7 +92,7 @@ A patient can have both types. Treatments are typed accordingly.
 | Soft delete | Global `IsActive` query filter in `OnModelCreating` — use `.IgnoreQueryFilters()` to bypass |
 | Enums in DB | Stored as strings (`HasConversion<string>()`) |
 | Error handling | Result Pattern (`Result<T>`, `Error`, `ErrorType`) + ProblemDetails RFC 9457 |
-| Auth | ASP.NET Core JWT — 4 secrets (access/refresh/invitation/reset), `token_kind` claim |
+| Auth | ASP.NET Core JWT — 3 secrets (access/invitation/reset), `token_kind` claim. Refresh is an opaque, hashed, DB-persisted `UserSession` token — not a JWT (see `openspec/changes/device-bound-sessions/`) |
 | JwtBearer config | **Lazy** via `AddOptions<JwtBearerOptions>().Configure<IOptions<JwtOptions>>()` — NEVER eager snapshot (breaks WebApplicationFactory) |
 | Validation | FluentValidation + `ValidationBehavior` in MediatR pipeline |
 | Logging | Serilog structured — bootstrap logger + request logging + CorrelationId |
@@ -184,7 +184,7 @@ Rider → right-click project → Tools → *Open project user secrets*
 
 ```
 Database:ConnectionString
-Jwt:Secret / RefreshSecret / InvitationSecret / ResetSecret
+Jwt:Secret / InvitationSecret / ResetSecret
 Email:Host / Port / UserName / Password / FromAddress
 App:FrontendUrl
 Seed:OwnerEmail / Seed:OwnerPassword

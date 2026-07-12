@@ -1,8 +1,15 @@
+using HouseCenter.Api.Domain.Entities;
+
 namespace HouseCenter.Api.Features.Auth;
 
-public sealed record LoginRequest(string Email, string Password);
+public sealed record LoginRequest(
+    string Email,
+    string Password,
+    string DeviceId,
+    string? DeviceName,
+    DevicePlatform Platform);
 
-public sealed record RefreshRequest(string RefreshToken);
+public sealed record RefreshRequest(string RefreshToken, string DeviceId);
 
 public sealed record TokenPairResponse(string AccessToken, string RefreshToken);
 
@@ -24,7 +31,10 @@ public sealed record SignupRequest(
     string? PhoneNumber,
     string? Country,
     string? State,
-    string? City);
+    string? City,
+    string DeviceId,
+    string? DeviceName,
+    DevicePlatform Platform);
 
 public sealed record PasswordResetRequestDto(string Email);
 

@@ -183,7 +183,8 @@ public sealed class ConsultationFlowTests(ApiFactory factory)
         var userId = await SeedUserAsync(roleName, email);
 
         var client = factory.CreateClient();
-        var response = await client.PostAsJsonAsync("/auth/login", new LoginRequest(email, Password));
+        var response = await client.PostAsJsonAsync("/auth/login",
+            new LoginRequest(email, Password, "test-device", null, DevicePlatform.Web));
         response.EnsureSuccessStatusCode();
 
         var tokens = await response.Content.ReadFromJsonAsync<TokenPairResponse>();
