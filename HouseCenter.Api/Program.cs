@@ -76,6 +76,8 @@ try
         builder.Configuration.GetSection(FileStorageOptions.SectionName));
     builder.Services.Configure<CorsOptions>(
         builder.Configuration.GetSection(CorsOptions.SectionName));
+    builder.Services.Configure<UserSessionOptions>(
+        builder.Configuration.GetSection(UserSessionOptions.SectionName));
 
     // CORS — lets the React web app (dev servers) call the API cross-origin.
     // Explicit origins (not AllowAnyOrigin) so AllowCredentials can be added later
@@ -140,8 +142,15 @@ try
     // Generic repository — open generic registration: one line covers IRepository<T> for every entity
     builder.Services.AddScoped(typeof(IRepository<>), typeof(EfRepository<>));
 
+    // Session TTL logic (60d/180d) needs a mockable clock to be testable — FakeTimeProvider
+    // drives it in tests. Scoped narrowly to the session path only (design.md decision #6);
+    // the DbContext audit hook keeps DateTime.UtcNow, no codebase-wide refactor.
+    builder.Services.AddSingleton(TimeProvider.System);
+
     // Application services
     builder.Services.AddSingleton<ITokenService, TokenService>();
+    builder.Services.AddSingleton<IRefreshTokenGenerator, RefreshTokenGenerator>();
+    builder.Services.AddSingleton<ITokenHasher, TokenHasher>();
     builder.Services.AddScoped<IAuthService, AuthService>();
     builder.Services.AddScoped<IInvitationService, InvitationService>();
     builder.Services.AddScoped<IUserService, UserService>();

@@ -19,4 +19,5 @@ public class User : BaseEntity
 
     public ICollection<Role> Roles { get; set; } = [];
     public ICollection<PatientComment> Comments { get; set; } = [];
+    public ICollection<UserSession> Sessions { get; set; } = [];
 }

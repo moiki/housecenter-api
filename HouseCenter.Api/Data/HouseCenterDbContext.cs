@@ -26,6 +26,7 @@ public class HouseCenterDbContext(DbContextOptions<HouseCenterDbContext> options
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
     public DbSet<FileAttachment> FileAttachments => Set<FileAttachment>();
     public DbSet<HelpTopic> HelpTopics => Set<HelpTopic>();
+    public DbSet<UserSession> UserSessions => Set<UserSession>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
