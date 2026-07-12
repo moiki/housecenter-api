@@ -157,31 +157,60 @@ references repo-wide.
 - [x] 4.1 (done early in PR2, task 2.12 — package was needed to unblock `UserSessionServiceTests`
       unit tests) `HouseCenter.Api.Tests/HouseCenter.Api.Tests.csproj` — add
       `Microsoft.Extensions.TimeProvider.Testing`
-- [ ] 4.2 `HouseCenter.Api.Tests/ApiFactory.cs` — the `deviceId`/`platform` ripple across
+- [x] 4.2 `HouseCenter.Api.Tests/ApiFactory.cs` — the `deviceId`/`platform` ripple across
       `CreateAuthenticatedClientAsync` and every `LoginRequest`/`SignupRequest` call site
       repo-wide was already done in PR2 (breaking DTO change, contained then to keep the full
-      suite green). **Still open for PR4:** add `public FakeTimeProvider Time` swap
+      suite green). Added `public FakeTimeProvider Time` swap
       (`services.RemoveAll<TimeProvider>(); services.AddSingleton<TimeProvider>(Time);`) —
       comment documenting the boundary: drives session TTL only, never JwtBearer's internal
-      clock
-- [ ] 4.3 New dedicated `ApiFactory`-backed fixture (own instance, **not** the shared
-      `[Collection("Api")]`) for TTL tests — avoids `FakeTimeProvider` state bleeding across
-      the shared collection
-- [ ] 4.4 Extend `LoginFlowTests.cs` — `Refresh_RotatesToken_PreviousAndCurrentHashesUpdate`
-      (R1, R3); `Refresh_ReuseAfterGrace_RevokesSessionAnd401sBoth` (R5);
-      `Refresh_WithinGraceWindow_Accepted` (R4); `Refresh_OneSecondPastGrace_Returns401` (R4);
-      `Refresh_DeviceIdMismatch_RevokesSession401` (R5);
-      `Refresh_GarbageOrAccessToken_Returns401` (R1, R5)
-- [ ] 4.5 New `SessionManagementTests.cs` — `Logout_RevokesOnlyThatDevice` (R7);
-      `RevokeAll_RevokesEveryDevice` (R7); `DeleteSession_RevokesOnlyThatDevice_404ForForeignId`
-      (R7); `GetSessions_SelfScopedNoHashFields` (R7, R9); `ResetPassword_RevokesAllSessions` (R8)
-- [ ] 4.6 New `SessionTtlTests.cs` (dedicated fixture from 4.3) —
+      clock. Wired unconditionally on every `ApiFactory` instance (shared + dedicated) —
+      inert unless a test calls `.Advance()`, so it's harmless for the shared fixture.
+- [x] 4.3 Dedicated `ApiFactory`-backed fixtures for time-driven tests — implemented as a
+      fresh `new ApiFactory()` constructed **inside each `[Fact]`** (own `Time` instance,
+      `await using`-disposed at test end) rather than a single shared `IClassFixture`, so
+      each time-driven test gets a completely isolated clock. Both dedicated-fixture test
+      classes (`SessionRotationTests`, `SessionTtlTests`) are still tagged
+      `[Collection("Api")]` (without consuming the shared instance) purely so xunit runs them
+      sequentially with the rest of the HTTP suite — a dedicated `ApiFactory` drops/recreates
+      the SAME real `housecenter_test` Postgres schema on startup, which must never race with
+      another instance's in-flight requests. Avoids `FakeTimeProvider` state bleeding across
+      the shared collection (design.md "shared-fixture caution").
+- [x] 4.4 Extended `LoginFlowTests.cs` (no time control needed, shared fixture) —
+      `Refresh_RotatesToken_PreviousAndCurrentHashesUpdate` (R1, R3, DB-level hash-shift
+      proof via `ITokenHasher`); `Refresh_WithinGraceWindow_Accepted` (R4, immediate retry,
+      no time control needed); `Refresh_DeviceIdMismatch_RevokesSession401` (R5);
+      `Refresh_WithGarbageToken_Returns401` (R1, R5, new — alongside the pre-existing
+      `Refresh_WithAccessTokenInsteadOfRefreshToken_Returns401`, left unchanged/still
+      correct). **Deviation:** `Refresh_ReuseAfterGrace_RevokesSessionAnd401sBoth` and
+      `Refresh_OneSecondPastGrace_Returns401` moved to the new dedicated-fixture
+      `SessionRotationTests.cs` instead of living in `LoginFlowTests.cs` — both need to
+      advance time past the grace deadline, which the shared fixture cannot safely do
+      (see 4.3's rationale); documented here rather than silently relocated.
+- [x] 4.5 New `SessionManagementTests.cs` — `Logout_RevokesOnlyThatDevice` (R7);
+      `RevokeAll_RevokesEveryDevice` (R7); `DeleteSession_RevokesOnlyThatDevice` +
+      `DeleteSession_ForeignOrNonexistentId_Returns404_NeverForbidden` (R7, split into two
+      tests instead of one for clarity); `GetSessions_SelfScopedAndNeverExposesHashFields`
+      (R7, R9 — asserts against the raw JSON text, not just the deserialized DTO);
+      `SessionEndpoints_WithoutAuth_Return401` (R7, all 4 endpoints); `ResetPassword_
+      RevokesAllSessions` (R8, first end-to-end coverage of `ResetPasswordAsync`, uses a
+      dedicated seeded Member user — never the shared Owner account, to avoid corrupting
+      `ApiFactory.OwnerPassword` for every other test in the collection)
+- [x] 4.6 New `SessionTtlTests.cs` (dedicated fixture per 4.3) —
       `Refresh_SlidingTtlExtendsOnUse` (R6); `Refresh_AbsoluteCapNotExtendable_401AfterCap` (R6)
       — both drive the fake clock and then call `POST /auth/refresh` (session path), never a
       bearer-protected endpoint (JwtBearer clock is intentionally not time-driven)
 
 **PR4 done when:** all 13 new scenario tests + the updated `LoginFlowTests.cs` pass green; the
 dedicated TTL fixture is isolated from the shared `Api` collection; `dotnet test` full suite green.
+
+**PR4 actual delivery (2026-07-12):** 15 new HTTP-integration tests shipped (4 in
+`LoginFlowTests.cs`, 2 in `SessionRotationTests.cs`, 7 in `SessionManagementTests.cs`, 2 in
+`SessionTtlTests.cs` — one more than the originally-cataloged 13+updated-existing, because
+`DeleteSession_...` was split into two focused tests and `SessionEndpoints_WithoutAuth_
+Return401` covers all 4 unauthenticated-access assertions in one test per R7). `dotnet build`
+clean (0 errors, same 7 pre-existing warnings as PR1-3, zero new). Full `dotnet test`:
+194/194 passed, 0 skipped (Postgres reachable throughout) = 179 PR1-3 baseline + 15 new.
+**ALL 4 PHASES OF `device-bound-sessions` ARE NOW COMPLETE.**
 
 ---
 

@@ -2,8 +2,11 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Auth;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HouseCenter.Api.Tests;
 
@@ -97,6 +100,79 @@ public sealed class LoginFlowTests(ApiFactory factory)
             new RefreshRequest(tokens.AccessToken, DeviceId));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // PR4 (device-bound-sessions, R1/R5): a token that never traces to any UserSession row
+    // at all — not the access-token cross-use case above, just arbitrary noise — must also
+    // 401. No time control needed; belongs on the shared fixture.
+    [Fact]
+    public async Task Refresh_WithGarbageToken_Returns401()
+    {
+        var response = await _client.PostAsJsonAsync("/auth/refresh",
+            new RefreshRequest("this-string-matches-no-session-hash-at-all", DeviceId));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // R1, R3 — proves the wire-level rotation contract AND the DB-level hash shift that the
+    // pure-C# UserSessionServiceTests (PR2/PR3) can't observe: hashing happens behind the
+    // HTTP boundary via the real ITokenHasher/DbContext wiring, not the raw service call.
+    [Fact]
+    public async Task Refresh_RotatesToken_PreviousAndCurrentHashesUpdate()
+    {
+        var tokens = await LoginAsOwnerAsync();
+
+        var response = await _client.PostAsJsonAsync("/auth/refresh",
+            new RefreshRequest(tokens.RefreshToken, DeviceId));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var rotated = (await response.Content.ReadFromJsonAsync<TokenPairResponse>())!;
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<ITokenHasher>();
+
+        var session = await db.UserSessions.AsNoTracking()
+            .SingleAsync(s => s.CurrentTokenHash == hasher.Hash(rotated.RefreshToken));
+        session.PreviousTokenHash.Should().Be(hasher.Hash(tokens.RefreshToken));
+    }
+
+    // R4 — a lost-response retry within the default 30s grace window must still succeed.
+    // No time control needed: the two HTTP calls happen milliseconds apart, well inside the
+    // window, so this runs safely on the shared fixture.
+    [Fact]
+    public async Task Refresh_WithinGraceWindow_Accepted()
+    {
+        var tokens = await LoginAsOwnerAsync();
+
+        var firstRotation = await _client.PostAsJsonAsync("/auth/refresh",
+            new RefreshRequest(tokens.RefreshToken, DeviceId));
+        firstRotation.EnsureSuccessStatusCode();
+        var t2 = (await firstRotation.Content.ReadFromJsonAsync<TokenPairResponse>())!;
+
+        // Present the just-superseded token (now Previous) again — still within grace.
+        var graceRetry = await _client.PostAsJsonAsync("/auth/refresh",
+            new RefreshRequest(tokens.RefreshToken, DeviceId));
+
+        graceRetry.StatusCode.Should().Be(HttpStatusCode.OK);
+        var t3 = await graceRetry.Content.ReadFromJsonAsync<TokenPairResponse>();
+        t3!.RefreshToken.Should().NotBe(tokens.RefreshToken);
+        t3.RefreshToken.Should().NotBe(t2.RefreshToken);
+    }
+
+    // R5 — a deviceId that doesn't match the session's bound device revokes the WHOLE
+    // session immediately, even for the correct deviceId's retry right after.
+    [Fact]
+    public async Task Refresh_DeviceIdMismatch_RevokesSession401()
+    {
+        var tokens = await LoginAsOwnerAsync();
+
+        var mismatch = await _client.PostAsJsonAsync("/auth/refresh",
+            new RefreshRequest(tokens.RefreshToken, "some-completely-different-device-id"));
+        mismatch.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var correctDeviceRetry = await _client.PostAsJsonAsync("/auth/refresh",
+            new RefreshRequest(tokens.RefreshToken, DeviceId));
+        correctDeviceRetry.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     private async Task<TokenPairResponse> LoginAsOwnerAsync()

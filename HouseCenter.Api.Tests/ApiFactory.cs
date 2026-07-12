@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Time.Testing;
 using HouseCenter.Api.Features.Auth;
 using Npgsql;
 
@@ -36,6 +37,18 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Captures push sends instead of hitting FCM; supports invalid-token simulation.</summary>
     public RecordingPushSender Push { get; } = new();
 
+    /// <summary>Fake clock driving ONLY <see cref="UserSession"/> TTL logic (design.md
+    /// TimeProvider integration) — never JwtBearer's internal access-token clock, so
+    /// advancing it has no effect on bearer-protected endpoints; time-driven refresh
+    /// scenarios must go through <c>/auth/refresh</c>. Starts at the real current instant
+    /// and stays frozen unless a test calls <see cref="FakeTimeProvider.Advance(TimeSpan)"/>
+    /// — harmless for the shared <c>[Collection("Api")]</c> fixture as long as no
+    /// shared-fixture test advances it. Grace-window-boundary and TTL scenarios MUST
+    /// construct their own dedicated <c>new ApiFactory()</c> instance instead of reusing
+    /// the shared collection fixture, so their clock manipulation never bleeds into every
+    /// other test sharing this fixture (design.md "shared-fixture caution").</summary>
+    public FakeTimeProvider Time { get; } = new(DateTimeOffset.UtcNow);
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -46,6 +59,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IEmailService>(Emails);
             services.RemoveAll<IPushSender>();
             services.AddSingleton<IPushSender>(Push);
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(Time);
         });
 
         builder.ConfigureAppConfiguration((_, config) =>
