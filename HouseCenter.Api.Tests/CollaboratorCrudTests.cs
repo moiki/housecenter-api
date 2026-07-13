@@ -1,9 +1,16 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using HouseCenter.Api.Common.Pagination;
+using HouseCenter.Api.Data;
+using HouseCenter.Api.Domain.Constants;
+using HouseCenter.Api.Domain.Entities;
+using HouseCenter.Api.Features.Auth;
 using HouseCenter.Api.Features.Clinics;
 using HouseCenter.Api.Features.Collaborators;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HouseCenter.Api.Tests;
 
@@ -132,6 +139,60 @@ public sealed class CollaboratorCrudTests(ApiFactory factory)
         paged!.PageSize.Should().Be(100);
     }
 
+    // ─── GET /collaborators/me ────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetMe_WithMatchingEmail_ReturnsCollaborator()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+        var email = $"me-{Guid.NewGuid():N}@test.local";
+
+        await InsertUserAsync(email, "Member123!test");
+        var collaborator = await CreateCollaboratorAsync(admin, clinic.Id, "Ana", "Match", email);
+
+        var memberClient = await LoginAsAsync(email, "Member123!test");
+        var response = await memberClient.GetAsync($"{Base}/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var me = await response.Content.ReadFromJsonAsync<CollaboratorResponse>();
+        me!.Id.Should().Be(collaborator.Id);
+    }
+
+    [Fact]
+    public async Task GetMe_WithDifferentCasedEmail_ReturnsCollaborator()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+        var uniquePart = Guid.NewGuid().ToString("N");
+        var userEmail = $"Me-{uniquePart}@Test.local";
+        var collaboratorEmail = $"me-{uniquePart}@test.local"; // same address, different casing
+
+        await InsertUserAsync(userEmail, "Member123!test");
+        var collaborator = await CreateCollaboratorAsync(admin, clinic.Id, "Ana", "CaseMatch", collaboratorEmail);
+
+        var memberClient = await LoginAsAsync(userEmail, "Member123!test");
+        var response = await memberClient.GetAsync($"{Base}/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var me = await response.Content.ReadFromJsonAsync<CollaboratorResponse>();
+        me!.Id.Should().Be(collaborator.Id);
+    }
+
+    [Fact]
+    public async Task GetMe_WithNoMatchingCollaborator_Returns404()
+    {
+        var email = $"nomatch-{Guid.NewGuid():N}@test.local";
+        await InsertUserAsync(email, "Member123!test");
+
+        var client = await LoginAsAsync(email, "Member123!test");
+        var response = await client.GetAsync($"{Base}/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
     private static async Task<ClinicResponse> CreateClinicAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/v1/clinics",
@@ -141,17 +202,55 @@ public sealed class CollaboratorCrudTests(ApiFactory factory)
     }
 
     private static Task<HttpResponseMessage> PostCollaboratorAsync(
-        HttpClient client, Guid clinicId, string firstName, string lastName) =>
+        HttpClient client, Guid clinicId, string firstName, string lastName, string? email = null) =>
         client.PostAsJsonAsync(Base, new CreateCollaboratorRequest(
-            firstName, lastName, $"colab-{Guid.NewGuid():N}@test.local", "8888-8888",
+            firstName, lastName, email ?? $"colab-{Guid.NewGuid():N}@test.local", "8888-8888",
             "Dirección colaborador", "Nicaragua", null, "Managua", null,
             clinicId, null, ["Fisioterapeuta"]));
 
     private static async Task<CollaboratorResponse> CreateCollaboratorAsync(
-        HttpClient client, Guid clinicId, string firstName, string lastName)
+        HttpClient client, Guid clinicId, string firstName, string lastName, string? email = null)
     {
-        var response = await PostCollaboratorAsync(client, clinicId, firstName, lastName);
+        var response = await PostCollaboratorAsync(client, clinicId, firstName, lastName, email);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<CollaboratorResponse>())!;
+    }
+
+    /// <summary>Direct DbContext insert (mirrors <c>ReportTests.SeedUserAsync</c>) — a known
+    /// password lets the test log in afterward via <see cref="LoginAsAsync"/>, unlike
+    /// ReportTests' variant which never needs to authenticate as the seeded user.</summary>
+    private async Task InsertUserAsync(string email, string password, string roleName = RoleNames.Member)
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+        var role = await db.Roles.SingleAsync(r => r.Name == roleName);
+
+        var user = new User
+        {
+            FirstName = "Test",
+            LastName = "User",
+            Email = email,
+            HashedPassword = BCrypt.Net.BCrypt.HashPassword(password),
+            Address = "Test 123",
+            EmailConfirmed = true,
+            Roles = [role]
+        };
+
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<HttpClient> LoginAsAsync(string email, string password)
+    {
+        var client = factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/auth/login",
+            new LoginRequest(email, password, $"test-device-{Guid.NewGuid():N}", null, DevicePlatform.Web));
+        response.EnsureSuccessStatusCode();
+
+        var tokens = await response.Content.ReadFromJsonAsync<TokenPairResponse>();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", tokens!.AccessToken);
+
+        return client;
     }
 }
