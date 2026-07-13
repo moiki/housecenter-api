@@ -3,13 +3,13 @@ artifact_store: openspec
 execution_mode: auto
 delivery_strategy: ask-on-risk
 created: 2026-07-11
-phase: tasks
-status: planning-complete
-completed_phases: [explore, propose, spec, design, tasks]
-chain_strategy: pending          # orchestrator MUST ask user (stacked-to-main vs feature-branch-chain) before sdd-apply
-chain_slice: null
+phase: verified
+status: verified-ready-for-pr
+completed_phases: [explore, propose, spec, design, tasks, apply, verify]
+chain_strategy: stacked-to-main   # confirmed by user 2026-07-11 (ask-on-risk resolved)
+chain_slice: 4 of 4
 current_slice: null
-decision_needed_before_apply: true
+decision_needed_before_apply: false   # resolved: implemented as 4 stacked chained commits
 notes: |
   2026-07-11 — Planning fast-forward (auto mode) complete for SDD change #1 of the
   HouseCenter Mobile plan. This is the API-side prerequisite: replace the stateless 7-day
@@ -45,5 +45,26 @@ notes: |
   - PR4 Tests (~430): extend LoginFlowTests + SessionManagementTests/SessionTtlTests,
         Microsoft.Extensions.TimeProvider.Testing, dedicated FakeTimeProvider ApiFactory instance.  (R1-R10)
 
-  strict_tdd:true — tests batched as PR4 (deliberate reviewable-slice exception, proposal-approved).
-  Ready for sdd-apply pending the guard decision above.
+  strict_tdd:true — service-logic unit tests pulled forward into PR2/PR3 (EF InMemory +
+  FakeTimeProvider); HTTP integration tests batched as PR4.
+
+  2026-07-11 — APPLY complete (auto, stacked-to-main, local commits, not yet pushed):
+  - PR1 Foundation      commit 2661847 — UserSession entity/config/migration, DevicePlatform/
+        RevokedReason enums, UserSessionOptions, RefreshTokenGenerator + TokenHasher, TimeProvider.
+  - PR2 Login/Refresh   commit afe26d3 — UserSessionService (create/rotate, 6-branch guard),
+        AuthService rewire, deviceId/deviceName/platform DTOs+validators, RefreshSecret removed.
+  - PR3 Session mgmt    commit 5ed54df — logout/list/delete/revoke-all endpoints (self-scoped,
+        404-not-403), ResetPasswordAsync bulk-revoke, dead RefreshTokenExpiryDays removed.
+  - PR4 Tests           commit b09ba73 — HTTP integration coverage (WebApplicationFactory +
+        dedicated FakeTimeProvider fixture). Full suite 194/194 green.
+  Plus docs commit d6e5b0e (SDD artifacts). 33/33 tasks checked.
+
+  2026-07-11 — VERIFY complete: PASS WITH WARNINGS (0 CRITICAL, 3 WARNING, 4 SUGGESTION),
+  engram obs 517 + verify-report.md. Independently re-ran build (clean) + suite (194/194),
+  traced all 14 scenarios + 8 design decisions, confirmed RefreshSecret/RefreshTokenExpiryDays
+  fully removed. Warnings: (1) R10 missing-deviceId/invalid-platform 400 not HTTP-tested;
+  (2) no formal TDD-cycle table (mitigated by independent re-run); (3) state.yaml guard fields
+  (now closed above). No functional defects.
+
+  NEXT: push branch + open 4 stacked PRs (issue-first) when user requests; optionally close
+  WARNING 1 (2 HTTP validation tests) first. sdd-archive only after PRs merge.
