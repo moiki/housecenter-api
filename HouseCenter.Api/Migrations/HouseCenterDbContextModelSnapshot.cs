@@ -908,6 +908,81 @@ namespace HouseCenter.Api.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.UserSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AbsoluteExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CurrentTokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("DeviceId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("DeviceName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("LastUsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Platform")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime?>("PreviousTokenExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PreviousTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevokedReason")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("UpdatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrentTokenHash")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\" = true");
+
+                    b.HasIndex("PreviousTokenHash");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId", "DeviceId");
+
+                    b.ToTable("UserSessions");
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.WorkRoute", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1234,6 +1309,17 @@ namespace HouseCenter.Api.Migrations
                     b.Navigation("Treatment");
                 });
 
+            modelBuilder.Entity("HouseCenter.Api.Domain.Entities.UserSession", b =>
+                {
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "User")
+                        .WithMany("Sessions")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.WorkRoute", b =>
                 {
                     b.HasOne("HouseCenter.Api.Domain.Entities.Clinic", "Clinic")
@@ -1360,6 +1446,8 @@ namespace HouseCenter.Api.Migrations
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.User", b =>
                 {
                     b.Navigation("Comments");
+
+                    b.Navigation("Sessions");
                 });
 
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.WorkRoute", b =>
