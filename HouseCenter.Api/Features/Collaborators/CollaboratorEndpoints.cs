@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Common.Validation;
@@ -14,6 +15,14 @@ public static class CollaboratorEndpoints
         group.MapGet("/", async ([AsParameters] PageQuery paging, ICollaboratorService service, CancellationToken ct) =>
                 (await service.ListAsync(paging, ct)).ToHttpResult())
             .WithName("ListCollaborators");
+
+        // Registered BEFORE "/{id:guid}" so "me" is never captured as an id — belt-and-suspenders
+        // with the :guid route constraint, which already makes "me" fail to match that route.
+        // No extra .RequireAuthorization(...) — inherits the group's bare RequireAuthorization()
+        // (any authenticated role, matching ListAsync/GetByIdAsync).
+        group.MapGet("/me", async (ClaimsPrincipal principal, ICollaboratorService service, CancellationToken ct) =>
+                (await service.GetMeAsync(principal, ct)).ToHttpResult())
+            .WithName("GetMyCollaboratorProfile");
 
         group.MapGet("/{id:guid}", async (Guid id, ICollaboratorService service, CancellationToken ct) =>
                 (await service.GetByIdAsync(id, ct)).ToHttpResult())

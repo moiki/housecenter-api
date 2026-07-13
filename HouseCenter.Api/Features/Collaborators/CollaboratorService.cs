@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Persistence;
 using HouseCenter.Api.Common.Results;
@@ -11,6 +12,7 @@ public interface ICollaboratorService
 {
     Task<Result<PagedResult<CollaboratorResponse>>> ListAsync(PageQuery paging, CancellationToken ct);
     Task<Result<CollaboratorResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<Result<CollaboratorResponse>> GetMeAsync(ClaimsPrincipal principal, CancellationToken ct);
     Task<Result<CollaboratorResponse>> CreateAsync(CreateCollaboratorRequest request, CancellationToken ct);
     Task<Result<CollaboratorResponse>> UpdateAsync(Guid id, UpdateCollaboratorRequest request, CancellationToken ct);
     Task<Result> DeactivateAsync(Guid id, CancellationToken ct);
@@ -49,6 +51,28 @@ public sealed class CollaboratorService(
                 c.Positions.Select(p => new PositionDto(p.Id, p.Name)).ToList(),
                 c.IsActive))
             .SingleOrDefaultAsync(ct);
+
+        return collaborator is not null ? collaborator : NotFound;
+    }
+
+    public async Task<Result<CollaboratorResponse>> GetMeAsync(ClaimsPrincipal principal, CancellationToken ct)
+    {
+        var userEmail = principal.FindFirstValue(ClaimTypes.Email)!;
+
+        // Case-insensitive match — EF Core translates .ToLower() to SQL LOWER(); Postgres
+        // string == is case-sensitive by default. FirstOrDefaultAsync, never
+        // SingleOrDefaultAsync — Collaborator.Email has no unique index/constraint, so a
+        // duplicate-email row must degrade to "first match," not 500.
+        var collaborator = await db.Collaborators
+            .AsNoTracking()
+            .Where(c => c.Email.ToLower() == userEmail.ToLower())
+            .Select(c => new CollaboratorResponse(
+                c.Id, c.FirstName, c.LastName, c.Email, c.PhoneNumber, c.Address,
+                c.Country, c.State, c.City, c.ProfilePicture,
+                c.ClinicId, c.Clinic.Name, c.WorkRouteId,
+                c.Positions.Select(p => new PositionDto(p.Id, p.Name)).ToList(),
+                c.IsActive))
+            .FirstOrDefaultAsync(ct);
 
         return collaborator is not null ? collaborator : NotFound;
     }
