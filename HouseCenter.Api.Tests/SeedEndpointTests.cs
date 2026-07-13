@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Auth;
 using HouseCenter.Api.Features.Seeding;
 
@@ -63,7 +64,7 @@ public sealed class SeedEndpointTests(ApiFactory factory)
 
         var client = factory.CreateClient();
         var login = await client.PostAsJsonAsync("/auth/login",
-            new LoginRequest("member@housecenter.dev", TestUserPassword));
+            new LoginRequest("member@housecenter.dev", TestUserPassword, "test-device", null, DevicePlatform.Web));
         login.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var tokens = await login.Content.ReadFromJsonAsync<TokenPairResponse>();

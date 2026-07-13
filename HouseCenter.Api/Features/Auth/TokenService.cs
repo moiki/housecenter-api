@@ -11,7 +11,6 @@ namespace HouseCenter.Api.Features.Auth;
 public enum TokenKind
 {
     Access,
-    Refresh,
     Invitation,
     PasswordReset
 }
@@ -19,7 +18,6 @@ public enum TokenKind
 public interface ITokenService
 {
     string CreateAccessToken(User user);
-    string CreateRefreshToken(User user);
     string CreateInvitationToken(Invitation invitation);
     string CreatePasswordResetToken(User user);
     Task<ClaimsPrincipal?> ValidateAsync(string token, TokenKind kind);
@@ -27,7 +25,7 @@ public interface ITokenService
 
 public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenService
 {
-    /// <summary>Custom claim marking what a token is FOR — prevents using a reset token as a refresh token.</summary>
+    /// <summary>Custom claim marking what a token is FOR — prevents using a reset token as an access token.</summary>
     public const string KindClaim = "token_kind";
     public const string PasswordVersionClaim = "prv";
     public const string InvitationIdClaim = "inv_id";
@@ -47,15 +45,6 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
 
         return CreateToken(claims, _jwt.Secret, TimeSpan.FromMinutes(_jwt.AccessTokenExpiryMinutes));
     }
-
-    public string CreateRefreshToken(User user) =>
-        CreateToken(
-        [
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            // Password version invalidates every outstanding refresh token on password change
-            new Claim(PasswordVersionClaim, user.PasswordRecoveryVersion.ToString()),
-            new Claim(KindClaim, nameof(TokenKind.Refresh))
-        ], _jwt.RefreshSecret, TimeSpan.FromDays(_jwt.RefreshTokenExpiryDays));
 
     public string CreateInvitationToken(Invitation invitation) =>
         CreateToken(
@@ -110,7 +99,6 @@ public sealed class TokenService(IOptions<JwtOptions> jwtOptions) : ITokenServic
     private SymmetricSecurityKey SigningKeyFor(TokenKind kind) => new(Encoding.UTF8.GetBytes(kind switch
     {
         TokenKind.Access => _jwt.Secret,
-        TokenKind.Refresh => _jwt.RefreshSecret,
         TokenKind.Invitation => _jwt.InvitationSecret,
         TokenKind.PasswordReset => _jwt.ResetSecret,
         _ => throw new ArgumentOutOfRangeException(nameof(kind))

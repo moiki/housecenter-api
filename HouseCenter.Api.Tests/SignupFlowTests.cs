@@ -49,7 +49,8 @@ public sealed class SignupFlowTests(ApiFactory factory)
         // 4. Recipient signs up — gets a token pair back (auto-login)
         var signupResponse = await _client.PostAsJsonAsync("/auth/signup", new SignupRequest(
             invitationToken, "New", "Member", inviteePassword,
-            "Some address 123", null, null, null, null));
+            "Some address 123", null, null, null, null,
+            "signup-flow-device", null, DevicePlatform.Web));
 
         signupResponse.StatusCode.Should().Be(HttpStatusCode.OK);
         var signupTokens = await signupResponse.Content.ReadFromJsonAsync<TokenPairResponse>();
@@ -65,12 +66,13 @@ public sealed class SignupFlowTests(ApiFactory factory)
 
         // 6. The new member can log in with their own credentials
         var loginResponse = await _client.PostAsJsonAsync("/auth/login",
-            new LoginRequest(inviteeEmail, inviteePassword));
+            new LoginRequest(inviteeEmail, inviteePassword, "signup-flow-device", null, DevicePlatform.Web));
         loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
 
         // 7. A consumed invitation cannot be used twice
         var reuseResponse = await _client.PostAsJsonAsync("/auth/signup", new SignupRequest(
-            invitationToken, "Evil", "Twin", "Hacker123!", "Nowhere", null, null, null, null));
+            invitationToken, "Evil", "Twin", "Hacker123!", "Nowhere", null, null, null, null,
+            "signup-flow-device", null, DevicePlatform.Web));
         reuseResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
     }
 
@@ -114,7 +116,8 @@ public sealed class SignupFlowTests(ApiFactory factory)
     public async Task Signup_WithGarbageToken_Returns401()
     {
         var response = await _client.PostAsJsonAsync("/auth/signup", new SignupRequest(
-            "not-a-real-token", "First", "Last", "Password123!", "Address", null, null, null, null));
+            "not-a-real-token", "First", "Last", "Password123!", "Address", null, null, null, null,
+            "signup-flow-device", null, DevicePlatform.Web));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -122,7 +125,7 @@ public sealed class SignupFlowTests(ApiFactory factory)
     private async Task<TokenPairResponse> LoginAsOwnerAsync()
     {
         var response = await _client.PostAsJsonAsync("/auth/login",
-            new LoginRequest(ApiFactory.OwnerEmail, ApiFactory.OwnerPassword));
+            new LoginRequest(ApiFactory.OwnerEmail, ApiFactory.OwnerPassword, "signup-flow-owner-device", null, DevicePlatform.Web));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<TokenPairResponse>())!;
     }

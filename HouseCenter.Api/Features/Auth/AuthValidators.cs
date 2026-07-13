@@ -8,6 +8,9 @@ public sealed class LoginRequestValidator : AbstractValidator<LoginRequest>
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(300);
         RuleFor(x => x.Password).NotEmpty();
+        RuleFor(x => x.DeviceId).NotEmpty();
+        RuleFor(x => x.DeviceName).MaximumLength(200);
+        RuleFor(x => x.Platform).IsInEnum();
     }
 }
 
@@ -16,6 +19,7 @@ public sealed class RefreshRequestValidator : AbstractValidator<RefreshRequest>
     public RefreshRequestValidator()
     {
         RuleFor(x => x.RefreshToken).NotEmpty();
+        RuleFor(x => x.DeviceId).NotEmpty();
     }
 }
 
@@ -33,6 +37,9 @@ public sealed class SignupRequestValidator : AbstractValidator<SignupRequest>
         RuleFor(x => x.Country).MaximumLength(100);
         RuleFor(x => x.State).MaximumLength(100);
         RuleFor(x => x.City).MaximumLength(100);
+        RuleFor(x => x.DeviceId).NotEmpty();
+        RuleFor(x => x.DeviceName).MaximumLength(200);
+        RuleFor(x => x.Platform).IsInEnum();
     }
 }
 
@@ -51,5 +58,13 @@ public sealed class PasswordResetValidator : AbstractValidator<PasswordResetDto>
         RuleFor(x => x.Token).NotEmpty();
         RuleFor(x => x.NewPassword).NotEmpty().MinimumLength(8)
             .WithMessage("Password must be at least 8 characters long");
+    }
+}
+
+public sealed class LogoutRequestValidator : AbstractValidator<LogoutRequest>
+{
+    public LogoutRequestValidator()
+    {
+        RuleFor(x => x.DeviceId).NotEmpty();
     }
 }

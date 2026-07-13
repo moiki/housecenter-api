@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
+using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Auth;
 
 namespace HouseCenter.Api.Tests;
@@ -10,12 +11,13 @@ namespace HouseCenter.Api.Tests;
 public sealed class LoginFlowTests(ApiFactory factory)
 {
     private readonly HttpClient _client = factory.CreateClient();
+    private const string DeviceId = "login-flow-tests-device";
 
     [Fact]
     public async Task Login_WithValidCredentials_ReturnsTokenPair()
     {
         var response = await _client.PostAsJsonAsync("/auth/login",
-            new LoginRequest(ApiFactory.OwnerEmail, ApiFactory.OwnerPassword));
+            new LoginRequest(ApiFactory.OwnerEmail, ApiFactory.OwnerPassword, DeviceId, "Owner Laptop", DevicePlatform.Web));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
@@ -29,7 +31,7 @@ public sealed class LoginFlowTests(ApiFactory factory)
     public async Task Login_WithWrongPassword_Returns401()
     {
         var response = await _client.PostAsJsonAsync("/auth/login",
-            new LoginRequest(ApiFactory.OwnerEmail, "definitely-wrong-password"));
+            new LoginRequest(ApiFactory.OwnerEmail, "definitely-wrong-password", DeviceId, null, DevicePlatform.Web));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -38,7 +40,7 @@ public sealed class LoginFlowTests(ApiFactory factory)
     public async Task Login_WithMalformedEmail_Returns400ValidationProblem()
     {
         var response = await _client.PostAsJsonAsync("/auth/login",
-            new LoginRequest("not-an-email", "whatever"));
+            new LoginRequest("not-an-email", "whatever", DeviceId, null, DevicePlatform.Web));
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
@@ -74,13 +76,15 @@ public sealed class LoginFlowTests(ApiFactory factory)
         var tokens = await LoginAsOwnerAsync();
 
         var response = await _client.PostAsJsonAsync("/auth/refresh",
-            new RefreshRequest(tokens.RefreshToken));
+            new RefreshRequest(tokens.RefreshToken, DeviceId));
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var refreshed = await response.Content.ReadFromJsonAsync<TokenPairResponse>();
         refreshed!.AccessToken.Should().NotBeNullOrWhiteSpace();
         refreshed.RefreshToken.Should().NotBeNullOrWhiteSpace();
+        // Single-use rotation: the presented token must never come back unchanged
+        refreshed.RefreshToken.Should().NotBe(tokens.RefreshToken);
     }
 
     [Fact]
@@ -88,9 +92,9 @@ public sealed class LoginFlowTests(ApiFactory factory)
     {
         var tokens = await LoginAsOwnerAsync();
 
-        // Cross-use protection: an access token must never work as a refresh token
+        // Cross-use protection: an access token must never match any session's token hash
         var response = await _client.PostAsJsonAsync("/auth/refresh",
-            new RefreshRequest(tokens.AccessToken));
+            new RefreshRequest(tokens.AccessToken, DeviceId));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
@@ -98,7 +102,7 @@ public sealed class LoginFlowTests(ApiFactory factory)
     private async Task<TokenPairResponse> LoginAsOwnerAsync()
     {
         var response = await _client.PostAsJsonAsync("/auth/login",
-            new LoginRequest(ApiFactory.OwnerEmail, ApiFactory.OwnerPassword));
+            new LoginRequest(ApiFactory.OwnerEmail, ApiFactory.OwnerPassword, DeviceId, "Owner Laptop", DevicePlatform.Web));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<TokenPairResponse>())!;
     }

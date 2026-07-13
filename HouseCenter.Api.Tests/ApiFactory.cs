@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using HouseCenter.Api.Common.Email;
 using HouseCenter.Api.Common.Push;
+using HouseCenter.Api.Domain.Entities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -22,6 +23,11 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     public const string OwnerEmail = "owner@test.local";
     public const string OwnerPassword = "Owner123!test";
+
+    /// <summary>Default deviceId used by <see cref="CreateAuthenticatedClientAsync"/> — tests
+    /// that need per-device isolation (e.g. session rotation/reuse scenarios) should log in
+    /// directly against a distinct deviceId instead of relying on this shared one.</summary>
+    public const string DefaultDeviceId = "test-owner-device";
 
     /// <summary>Captures notification/invitation emails instead of sending them, so tests
     /// can assert delivery. Shared across the collection — filter by recipient address.</summary>
@@ -60,7 +66,6 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["Database:ConnectionString"] = testConnectionString,
                 ["Database:RecreateOnStartup"] = "true",
                 ["Jwt:Secret"] = "integration-test-access-secret-0001",
-                ["Jwt:RefreshSecret"] = "integration-test-refresh-secret-0002",
                 ["Jwt:InvitationSecret"] = "integration-test-invite-secret-0003",
                 ["Jwt:ResetSecret"] = "integration-test-reset-secret-0004",
                 ["Email:Host"] = "", // emails are logged, never sent
@@ -86,7 +91,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     {
         var client = CreateClient();
         var response = await client.PostAsJsonAsync("/auth/login",
-            new LoginRequest(OwnerEmail, OwnerPassword));
+            new LoginRequest(OwnerEmail, OwnerPassword, DefaultDeviceId, "Test Owner Device", DevicePlatform.Web));
         response.EnsureSuccessStatusCode();
 
         var tokens = await response.Content.ReadFromJsonAsync<TokenPairResponse>();
