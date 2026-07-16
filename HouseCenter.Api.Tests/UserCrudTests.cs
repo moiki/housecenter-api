@@ -5,6 +5,7 @@ using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
+using HouseCenter.Api.Features.Auth;
 using HouseCenter.Api.Features.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -124,6 +125,28 @@ public sealed class UserCrudTests(ApiFactory factory)
     {
         var response = await factory.CreateClient().PatchAsJsonAsync("/users/me/theme",
             new UpdateThemeRequest(DarkMode: true));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task UpdateLanguage_SwitchesToEnglish_ReflectedOnMe()
+    {
+        var client = await Client();
+
+        var response = await client.PatchAsJsonAsync("/users/me/language",
+            new UpdateLanguageRequest(Language.En));
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var me = await (await client.GetAsync("/auth/me")).Content.ReadFromJsonAsync<MeResponse>();
+        me!.Language.Should().Be("En");
+    }
+
+    [Fact]
+    public async Task UpdateLanguage_WithoutToken_Returns401()
+    {
+        var response = await factory.CreateClient().PatchAsJsonAsync("/users/me/language",
+            new UpdateLanguageRequest(Language.En));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }

@@ -47,6 +47,13 @@ public static class UserEndpoints
             })
             .WithName("UpdateMyTheme");
 
+        group.MapPatch("/me/language", async (ClaimsPrincipal principal, UpdateLanguageRequest request, IUserService usersService, CancellationToken ct) =>
+            {
+                var userId = Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                return (await usersService.UpdateLanguageAsync(userId, request, ct)).ToHttpResult();
+            })
+            .WithName("UpdateMyLanguage");
+
         return app;
     }
 }

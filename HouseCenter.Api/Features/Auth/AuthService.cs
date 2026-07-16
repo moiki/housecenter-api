@@ -60,7 +60,7 @@ public sealed class AuthService(
             .AsNoTracking()
             .Where(u => u.Id == userId && u.IsActive)
             .Select(u => new MeResponse(
-                u.Id, u.FirstName, u.LastName, u.Email, u.DarkMode, u.ProfilePicture,
+                u.Id, u.FirstName, u.LastName, u.Email, u.DarkMode, u.Language.ToString(), u.ProfilePicture,
                 u.Roles.Select(r => r.Name).ToList()))
             .SingleOrDefaultAsync(ct);
 

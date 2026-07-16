@@ -19,6 +19,7 @@ public sealed record MeResponse(
     string LastName,
     string Email,
     bool DarkMode,
+    string Language,
     string? ProfilePicture,
     IReadOnlyList<string> Roles);
 

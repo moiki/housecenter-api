@@ -534,6 +534,9 @@ namespace HouseCenter.Api.Migrations
                     b.Property<string>("Profile")
                         .HasColumnType("text");
 
+                    b.Property<TimeOnly?>("RouteVisitTime")
+                        .HasColumnType("time without time zone");
+
                     b.Property<string>("State")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -873,6 +876,13 @@ namespace HouseCenter.Api.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("Es");
 
                     b.Property<string>("LastName")
                         .IsRequired()
@@ -1328,41 +1338,7 @@ namespace HouseCenter.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.OwnsMany("HouseCenter.Api.Domain.Entities.DestinationPoint", "Destinations", b1 =>
-                        {
-                            b1.Property<Guid>("WorkRouteId");
-
-                            b1.Property<int>("__synthesizedOrdinal")
-                                .ValueGeneratedOnAdd();
-
-                            b1.Property<string>("Description")
-                                .IsRequired();
-
-                            b1.Property<string>("GoogleMapUrl")
-                                .HasMaxLength(500);
-
-                            b1.Property<string>("Name")
-                                .IsRequired()
-                                .HasMaxLength(200);
-
-                            b1.Property<string>("Picture")
-                                .HasMaxLength(500);
-
-                            b1.HasKey("WorkRouteId", "__synthesizedOrdinal");
-
-                            b1.ToTable("WorkRoutes");
-
-                            b1
-                                .ToJson("Destinations")
-                                .HasColumnType("jsonb");
-
-                            b1.WithOwner()
-                                .HasForeignKey("WorkRouteId");
-                        });
-
                     b.Navigation("Clinic");
-
-                    b.Navigation("Destinations");
                 });
 
             modelBuilder.Entity("PatientUser", b =>

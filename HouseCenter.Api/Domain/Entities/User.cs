@@ -1,5 +1,13 @@
 namespace HouseCenter.Api.Domain.Entities;
 
+// Not a bool — a third language (or a per-region variant) shouldn't require a schema
+// change. Stored as string, matching Gender/PrimaryAttentionType's HasConversion<string>().
+public enum Language
+{
+    En,
+    Es
+}
+
 public class User : BaseEntity
 {
     public string FirstName { get; set; } = string.Empty;
@@ -15,6 +23,7 @@ public class User : BaseEntity
     public int PasswordRecoveryVersion { get; set; } = 0;
     public bool EmailConfirmed { get; set; } = false;
     public bool DarkMode { get; set; } = false;
+    public Language Language { get; set; } = Language.Es;
     public string? ProfilePicture { get; set; }
 
     public ICollection<Role> Roles { get; set; } = [];

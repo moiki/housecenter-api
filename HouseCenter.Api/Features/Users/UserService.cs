@@ -15,6 +15,7 @@ public interface IUserService
     Task<Result> DeactivateAsync(Guid id, CancellationToken ct);
     Task<Result<UserResponse>> AssignRolesAsync(Guid id, AssignRolesRequest request, CancellationToken ct);
     Task<Result> UpdateThemeAsync(Guid userId, UpdateThemeRequest request, CancellationToken ct);
+    Task<Result> UpdateLanguageAsync(Guid userId, UpdateLanguageRequest request, CancellationToken ct);
 }
 
 public sealed class UserService(
@@ -35,7 +36,7 @@ public sealed class UserService(
             .Select(u => new UserResponse(
                 u.Id, u.FirstName, u.LastName, u.Email, u.PhoneNumber,
                 u.Country, u.State, u.City, u.Address, u.Profession,
-                u.ProfilePicture, u.DarkMode, u.IsActive,
+                u.ProfilePicture, u.DarkMode, u.Language.ToString(), u.IsActive,
                 u.Roles.Select(r => r.Name).ToList()));
 
         return await query.ToPagedResultAsync(paging, ct);
@@ -49,7 +50,7 @@ public sealed class UserService(
             .Select(u => new UserResponse(
                 u.Id, u.FirstName, u.LastName, u.Email, u.PhoneNumber,
                 u.Country, u.State, u.City, u.Address, u.Profession,
-                u.ProfilePicture, u.DarkMode, u.IsActive,
+                u.ProfilePicture, u.DarkMode, u.Language.ToString(), u.IsActive,
                 u.Roles.Select(r => r.Name).ToList()))
             .SingleOrDefaultAsync(ct);
 
@@ -134,10 +135,21 @@ public sealed class UserService(
         return Result.Success();
     }
 
+    public async Task<Result> UpdateLanguageAsync(Guid userId, UpdateLanguageRequest request, CancellationToken ct)
+    {
+        var user = await users.GetByIdAsync(userId, ct);
+        if (user is null) return NotFound;
+
+        user.Language = request.Language;
+        await users.SaveChangesAsync(ct);
+
+        return Result.Success();
+    }
+
     // In-memory mapping only (tracked entities already loaded) — NOT usable inside a Select
     private static UserResponse ToResponse(User u) => new(
         u.Id, u.FirstName, u.LastName, u.Email, u.PhoneNumber,
         u.Country, u.State, u.City, u.Address, u.Profession,
-        u.ProfilePicture, u.DarkMode, u.IsActive,
+        u.ProfilePicture, u.DarkMode, u.Language.ToString(), u.IsActive,
         u.Roles.Select(r => r.Name).ToList());
 }
