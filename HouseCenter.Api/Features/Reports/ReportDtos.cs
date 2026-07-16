@@ -22,7 +22,7 @@ public sealed record ClinicReportResponse(
 public sealed record WorkRouteReportResponse(
     Guid WorkRouteId,
     string RouteName,
-    int DestinationsCount,
+    int StopsCount,
     int CollaboratorsOnRoute,
     int SessionsLast30Days,
     int PatientsVisited,

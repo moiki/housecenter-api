@@ -26,6 +26,12 @@ public class Patient : BaseEntity
     public Guid? WorkRouteId { get; set; }
     public WorkRoute? WorkRoute { get; set; }
 
+    // Only meaningful when WorkRouteId is set — what time in the day this patient is
+    // typically visited on their route. Drives stop ordering on the route's calendar/map
+    // view; replaces the old free-text WorkRoute.Destinations (removed — see
+    // WorkRouteConfiguration/WorkRouteResponse.Stops, derived from these two fields).
+    public TimeOnly? RouteVisitTime { get; set; }
+
     public ICollection<User> Collaborators { get; set; } = [];
     public ICollection<User> AssignedDoctors { get; set; } = [];
     public ICollection<Treatment> Treatments { get; set; } = [];

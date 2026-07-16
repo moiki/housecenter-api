@@ -180,7 +180,7 @@ public sealed class AttachmentTests(ApiFactory factory)
             $"Attach{Guid.NewGuid():N}"[..20], "Paciente", null,
             new DateTime(2016, 6, 1, 0, 0, 0, DateTimeKind.Utc),
             Gender.Male, "Nicaragua", null, "Managua", "Dir 1", null,
-            AttentionType.Medical, null, null));
+            AttentionType.Medical, null, null, null));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<PatientResponse>())!;
     }

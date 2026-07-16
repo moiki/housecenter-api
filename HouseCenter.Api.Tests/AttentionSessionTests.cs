@@ -226,7 +226,7 @@ public sealed class AttentionSessionTests(ApiFactory factory)
             $"Paciente{Guid.NewGuid():N}"[..20], "Sesiones", null,
             new DateTime(2015, 1, 1, 0, 0, 0, DateTimeKind.Utc),
             Gender.Male, "Nicaragua", null, "Managua", "Dirección 123", null,
-            AttentionType.Medical, null, null));
+            AttentionType.Medical, null, null, null));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<PatientResponse>())!;
     }

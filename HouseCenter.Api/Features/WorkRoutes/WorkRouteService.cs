@@ -14,6 +14,8 @@ public interface IWorkRouteService
     Task<Result<WorkRouteResponse>> CreateAsync(CreateWorkRouteRequest request, CancellationToken ct);
     Task<Result<WorkRouteResponse>> UpdateAsync(Guid id, UpdateWorkRouteRequest request, CancellationToken ct);
     Task<Result> DeactivateAsync(Guid id, CancellationToken ct);
+    Task<Result<WorkRouteResponse>> AssignPatientAsync(Guid routeId, Guid patientId, AssignPatientToRouteRequest request, CancellationToken ct);
+    Task<Result<WorkRouteResponse>> UnassignPatientAsync(Guid routeId, Guid patientId, CancellationToken ct);
 }
 
 public sealed class WorkRouteService(
@@ -31,6 +33,7 @@ public sealed class WorkRouteService(
         var entityPage = await db.WorkRoutes
             .AsNoTracking()
             .Include(w => w.Clinic)
+            .Include(w => w.Patients)
             .OrderBy(w => w.RouteName)
             .ToPagedResultAsync(paging, ct);
 
@@ -44,6 +47,7 @@ public sealed class WorkRouteService(
         var route = await db.WorkRoutes
             .AsNoTracking()
             .Include(w => w.Clinic)
+            .Include(w => w.Patients)
             .SingleOrDefaultAsync(w => w.Id == id, ct);
 
         return route is not null ? ToResponse(route, route.Clinic.Name) : NotFound;
@@ -63,15 +67,6 @@ public sealed class WorkRouteService(
             Description = request.Description,
             FeaturedImage = request.FeaturedImage,
             ClinicId = request.ClinicId,
-            Destinations = request.Destinations
-                .Select(d => new DestinationPoint
-                {
-                    Name = d.Name,
-                    Description = d.Description,
-                    Picture = d.Picture,
-                    GoogleMapUrl = d.GoogleMapUrl
-                })
-                .ToList(),
             RecurrenceDays = ToFlags(request.RecurrenceDays),
             RecurrenceStartDate = request.RecurrenceStartDate,
             RecurrenceEndDate = request.RecurrenceEndDate,
@@ -88,6 +83,7 @@ public sealed class WorkRouteService(
     {
         var route = await routes.Query()
             .Include(w => w.Clinic)
+            .Include(w => w.Patients)
             .SingleOrDefaultAsync(w => w.Id == id, ct);
 
         if (route is null) return NotFound;
@@ -95,17 +91,6 @@ public sealed class WorkRouteService(
         route.RouteName = request.RouteName;
         route.Description = request.Description;
         route.FeaturedImage = request.FeaturedImage;
-
-        // Owned JSON: no identity per item — the request's list IS the new truth, replace wholesale
-        route.Destinations = request.Destinations
-            .Select(d => new DestinationPoint
-            {
-                Name = d.Name,
-                Description = d.Description,
-                Picture = d.Picture,
-                GoogleMapUrl = d.GoogleMapUrl
-            })
-            .ToList();
 
         // Update allows an empty weekday set (D9) — ToFlags(empty) yields Weekday.None
         route.RecurrenceDays = ToFlags(request.RecurrenceDays);
@@ -129,11 +114,49 @@ public sealed class WorkRouteService(
         return Result.Success();
     }
 
+    // Reassigning (a patient already on another route) is allowed on purpose — moving a
+    // patient between routes is a normal thing to do, not an error.
+    public async Task<Result<WorkRouteResponse>> AssignPatientAsync(
+        Guid routeId, Guid patientId, AssignPatientToRouteRequest request, CancellationToken ct)
+    {
+        if (!await db.WorkRoutes.AnyAsync(w => w.Id == routeId, ct))
+            return NotFound;
+
+        var patient = await db.Patients.SingleOrDefaultAsync(p => p.Id == patientId, ct);
+        if (patient is null)
+            return Error.NotFound("patients.not_found", "Patient not found");
+
+        patient.WorkRouteId = routeId;
+        patient.RouteVisitTime = request.VisitTime;
+        await db.SaveChangesAsync(ct);
+
+        return await GetByIdAsync(routeId, ct);
+    }
+
+    public async Task<Result<WorkRouteResponse>> UnassignPatientAsync(Guid routeId, Guid patientId, CancellationToken ct)
+    {
+        if (!await db.WorkRoutes.AnyAsync(w => w.Id == routeId, ct))
+            return NotFound;
+
+        var patient = await db.Patients.SingleOrDefaultAsync(p => p.Id == patientId && p.WorkRouteId == routeId, ct);
+        if (patient is null)
+            return Error.NotFound("patients.not_on_route", "Patient is not assigned to this route");
+
+        patient.WorkRouteId = null;
+        patient.RouteVisitTime = null;
+        await db.SaveChangesAsync(ct);
+
+        return await GetByIdAsync(routeId, ct);
+    }
+
     private static WorkRouteResponse ToResponse(WorkRoute w, string clinicName) => new(
         w.Id, w.RouteName, w.Description, w.FeaturedImage,
         w.ClinicId, clinicName,
-        w.Destinations
-            .Select(d => new DestinationPointDto(d.Name, d.Description, d.Picture, d.GoogleMapUrl))
+        // Stops = patients assigned to this route (Patient.WorkRouteId), ordered by visit
+        // time — nulls (no time set yet) sort last rather than first.
+        w.Patients
+            .OrderBy(p => p.RouteVisitTime ?? TimeOnly.MaxValue)
+            .Select(p => new WorkRouteStopDto(p.Id, $"{p.FirstName} {p.LastName}", p.Address, p.RouteVisitTime))
             .ToList(),
         w.IsActive,
         ToNames(w.RecurrenceDays),

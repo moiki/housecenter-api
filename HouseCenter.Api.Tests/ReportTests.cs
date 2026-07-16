@@ -108,6 +108,9 @@ public sealed class ReportTests(ApiFactory factory)
         var owner = await OwnerClient();
         var clinic = await CreateClinicAsync(owner);
         var route = await CreateWorkRouteAsync(owner, clinic.Id);
+        // Stops are derived from patients assigned to the route, not a separate list.
+        await CreatePatientAsync(owner, workRouteId: route.Id);
+        await CreatePatientAsync(owner, workRouteId: route.Id);
         var patient = await CreatePatientAsync(owner);
         var memberId = await SeedUserAsync(RoleNames.Member);
         await CreateSessionAsync(owner, patient.Id, memberId, workRouteId: route.Id);
@@ -116,7 +119,7 @@ public sealed class ReportTests(ApiFactory factory)
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var report = await response.Content.ReadFromJsonAsync<WorkRouteReportResponse>();
-        report!.DestinationsCount.Should().Be(2);
+        report!.StopsCount.Should().Be(2);
         report.SessionsLast30Days.Should().BeGreaterThanOrEqualTo(1);
         report.PatientsVisited.Should().BeGreaterThanOrEqualTo(1);
         report.CollaboratorNames.Should().NotBeNull(); // owner is management
@@ -219,13 +222,13 @@ public sealed class ReportTests(ApiFactory factory)
         return (client, userId);
     }
 
-    private static async Task<PatientResponse> CreatePatientAsync(HttpClient client)
+    private static async Task<PatientResponse> CreatePatientAsync(HttpClient client, Guid? workRouteId = null)
     {
         var response = await client.PostAsJsonAsync("/patients", new CreatePatientRequest(
             $"Reporte{Guid.NewGuid():N}"[..20], "Paciente", null,
             new DateTime(2017, 5, 1, 0, 0, 0, DateTimeKind.Utc),
             Gender.Male, "Nicaragua", null, "Managua", "Dirección 789", null,
-            AttentionType.Medical, null, null));
+            AttentionType.Medical, null, workRouteId, null));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<PatientResponse>())!;
     }
@@ -242,10 +245,6 @@ public sealed class ReportTests(ApiFactory factory)
     {
         var response = await client.PostAsJsonAsync("/workroutes", new CreateWorkRouteRequest(
             $"Ruta {Guid.NewGuid():N}"[..20], "Ruta de prueba", null, clinicId,
-            [
-                new DestinationPointDto("Punto A", "Primera parada", null, null),
-                new DestinationPointDto("Punto B", "Segunda parada", null, null)
-            ],
             ["Tuesday", "Thursday"],
             DateOnly.FromDateTime(DateTime.UtcNow),
             null,

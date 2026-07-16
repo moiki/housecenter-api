@@ -18,6 +18,7 @@ public sealed record PatientResponse(
     string PrimaryAttentionType,
     Guid? ClinicId,
     Guid? WorkRouteId,
+    TimeOnly? RouteVisitTime,
     bool IsActive);
 
 public sealed record CreatePatientRequest(
@@ -33,7 +34,8 @@ public sealed record CreatePatientRequest(
     string? Description,
     AttentionType PrimaryAttentionType,
     Guid? ClinicId,
-    Guid? WorkRouteId);
+    Guid? WorkRouteId,
+    TimeOnly? RouteVisitTime);
 
 public sealed record UpdatePatientRequest(
     string FirstName,
@@ -48,7 +50,8 @@ public sealed record UpdatePatientRequest(
     string? Description,
     AttentionType PrimaryAttentionType,
     Guid? ClinicId,
-    Guid? WorkRouteId);
+    Guid? WorkRouteId,
+    TimeOnly? RouteVisitTime);
 
 // --- Full summary (4.3) ---
 public sealed record PatientFullSummaryResponse(

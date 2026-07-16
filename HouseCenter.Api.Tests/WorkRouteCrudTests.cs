@@ -6,6 +6,7 @@ using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Clinics;
+using HouseCenter.Api.Features.Patients;
 using HouseCenter.Api.Features.WorkRoutes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -304,6 +305,88 @@ public sealed class WorkRouteCrudTests(ApiFactory factory)
         route.RecurrenceStartDate.Should().Be(expectedStartDate);
     }
 
+    // ─── Assign / unassign patients (stops are derived, not entered) ──────────
+
+    [Fact]
+    public async Task AssignPatient_AddsToStops_OrderedByVisitTime()
+    {
+        var client = await Client();
+        var clinic = await CreateClinicAsync(client);
+        var route = await CreateWorkRouteAsync(client, clinic.Id);
+        var early = await CreatePatientAsync(client);
+        var late = await CreatePatientAsync(client);
+
+        // Assign the later time first, to confirm ordering isn't just insertion order.
+        (await client.PostAsJsonAsync($"{Base}/{route.Id}/patients/{late.Id}",
+            new AssignPatientToRouteRequest(new TimeOnly(14, 0)))).EnsureSuccessStatusCode();
+        var response = await client.PostAsJsonAsync($"{Base}/{route.Id}/patients/{early.Id}",
+            new AssignPatientToRouteRequest(new TimeOnly(9, 0)));
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await response.Content.ReadFromJsonAsync<WorkRouteResponse>();
+        updated!.Stops.Select(s => s.PatientId).Should().Equal(early.Id, late.Id);
+        updated.Stops.Single(s => s.PatientId == early.Id).VisitTime.Should().Be(new TimeOnly(9, 0));
+    }
+
+    [Fact]
+    public async Task AssignPatient_UnknownPatient_Returns404()
+    {
+        var client = await Client();
+        var clinic = await CreateClinicAsync(client);
+        var route = await CreateWorkRouteAsync(client, clinic.Id);
+
+        var response = await client.PostAsJsonAsync($"{Base}/{route.Id}/patients/{Guid.NewGuid()}",
+            new AssignPatientToRouteRequest(null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task UnassignPatient_ClearsWorkRouteAndVisitTime()
+    {
+        var client = await Client();
+        var clinic = await CreateClinicAsync(client);
+        var route = await CreateWorkRouteAsync(client, clinic.Id);
+        var patient = await CreatePatientAsync(client);
+        (await client.PostAsJsonAsync($"{Base}/{route.Id}/patients/{patient.Id}",
+            new AssignPatientToRouteRequest(new TimeOnly(9, 0)))).EnsureSuccessStatusCode();
+
+        var response = await client.DeleteAsync($"{Base}/{route.Id}/patients/{patient.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = await response.Content.ReadFromJsonAsync<WorkRouteResponse>();
+        updated!.Stops.Should().BeEmpty();
+
+        var patientResponse = await client.GetAsync($"/patients/{patient.Id}");
+        var refreshedPatient = await patientResponse.Content.ReadFromJsonAsync<PatientResponse>();
+        refreshedPatient!.WorkRouteId.Should().BeNull();
+        refreshedPatient.RouteVisitTime.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UnassignPatient_NotOnThisRoute_Returns404()
+    {
+        var client = await Client();
+        var clinic = await CreateClinicAsync(client);
+        var route = await CreateWorkRouteAsync(client, clinic.Id);
+        var patient = await CreatePatientAsync(client); // never assigned
+
+        var response = await client.DeleteAsync($"{Base}/{route.Id}/patients/{patient.Id}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private static async Task<PatientResponse> CreatePatientAsync(HttpClient client)
+    {
+        var response = await client.PostAsJsonAsync("/patients", new CreatePatientRequest(
+            $"Ruta{Guid.NewGuid():N}"[..20], "Paciente", null,
+            new DateTime(2016, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            Gender.Male, "Nicaragua", null, "Managua", "Dirección de prueba", null,
+            AttentionType.Medical, null, null, null));
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<PatientResponse>())!;
+    }
+
     private static async Task<ClinicResponse> CreateClinicAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/v1/clinics",
@@ -325,7 +408,6 @@ public sealed class WorkRouteCrudTests(ApiFactory factory)
             "Ruta de prueba",
             null,
             clinicId,
-            [],
             recurrenceDays ?? ["Tuesday"],
             startDate ?? DateOnly.FromDateTime(DateTime.UtcNow),
             endDate,
@@ -360,7 +442,6 @@ public sealed class WorkRouteCrudTests(ApiFactory factory)
         current.RouteName,
         current.Description,
         current.FeaturedImage,
-        [],
         recurrenceDays ?? current.RecurrenceDays,
         startDate,
         endDate,

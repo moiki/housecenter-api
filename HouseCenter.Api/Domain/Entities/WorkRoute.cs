@@ -9,8 +9,12 @@ public class WorkRoute : BaseEntity
     public Guid ClinicId { get; set; }
     public Clinic Clinic { get; set; } = null!;
 
-    public ICollection<DestinationPoint> Destinations { get; set; } = [];
     public ICollection<Collaborator> Collaborators { get; set; } = [];
+
+    // The route's "stops" — see WorkRouteResponse.Stops, which projects this collection
+    // ordered by Patient.RouteVisitTime. Replaces the old free-text Destinations list
+    // (removed): that list had no relationship to Patient at all, so it could silently
+    // drift out of sync with who was actually assigned to the route.
     public ICollection<Patient> Patients { get; set; } = [];
 
     // Weekly-by-weekday recurrence rule (virtual — no occurrence rows are stored;

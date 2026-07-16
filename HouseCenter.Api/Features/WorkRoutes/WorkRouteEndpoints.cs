@@ -41,6 +41,20 @@ public static class WorkRouteEndpoints
             .RequireAuthorization(PolicyNames.AdministratorOrAbove)
             .WithName("DeactivateWorkRoute");
 
+        // Stops are derived from patient assignment — these two add/remove that
+        // assignment directly, same shape as PatientEndpoints' AddCollaborator/AddPatientDoctor.
+        group.MapPost("/{id:guid}/patients/{patientId:guid}", async (
+                Guid id, Guid patientId, AssignPatientToRouteRequest request, IWorkRouteService service, CancellationToken ct) =>
+                (await service.AssignPatientAsync(id, patientId, request, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithName("AssignPatientToWorkRoute");
+
+        group.MapDelete("/{id:guid}/patients/{patientId:guid}", async (
+                Guid id, Guid patientId, IWorkRouteService service, CancellationToken ct) =>
+                (await service.UnassignPatientAsync(id, patientId, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithName("UnassignPatientFromWorkRoute");
+
         return app;
     }
 }

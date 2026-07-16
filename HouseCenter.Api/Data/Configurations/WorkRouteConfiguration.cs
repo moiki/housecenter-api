@@ -14,16 +14,6 @@ public class WorkRouteConfiguration : IEntityTypeConfiguration<WorkRoute>
         builder.Property(w => w.Description).IsRequired();
         builder.Property(w => w.FeaturedImage).HasMaxLength(500);
 
-        // Owned entity: DestinationPoint lives as JSON column (no separate table)
-        builder.OwnsMany(w => w.Destinations, d =>
-        {
-            d.ToJson();
-            d.Property(x => x.Name).IsRequired().HasMaxLength(200);
-            d.Property(x => x.Description).IsRequired();
-            d.Property(x => x.Picture).HasMaxLength(500);
-            d.Property(x => x.GoogleMapUrl).HasMaxLength(500);
-        });
-
         builder.HasOne(w => w.Clinic)
             .WithMany(c => c.WorkRoutes)
             .HasForeignKey(w => w.ClinicId)

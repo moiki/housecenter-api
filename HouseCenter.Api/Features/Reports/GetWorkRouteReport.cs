@@ -25,8 +25,6 @@ public sealed class GetWorkRouteReportHandler(HouseCenterDbContext db)
             return Error.Forbidden("reports.doctor_no_routes",
                 "Doctors do not have access to work route reports");
 
-        // Owned JSON collection (Destinations) loads with the entity — counting
-        // it in SQL is not translatable, so we materialize the route once.
         var route = await db.WorkRoutes
             .AsNoTracking()
             .SingleOrDefaultAsync(w => w.Id == request.WorkRouteId, ct);
@@ -35,6 +33,10 @@ public sealed class GetWorkRouteReportHandler(HouseCenterDbContext db)
 
         var since = DateTime.UtcNow.AddDays(-30);
 
+        // Stops are derived from patient assignment (Patient.WorkRouteId), not a
+        // separately-maintained list — see WorkRouteResponse.Stops.
+        var stopsCount = await db.Patients
+            .CountAsync(p => p.WorkRouteId == request.WorkRouteId, ct);
         var collaboratorsOnRoute = await db.Collaborators
             .CountAsync(c => c.WorkRouteId == request.WorkRouteId, ct);
         var sessionsLast30Days = await db.AttentionSessions
@@ -54,7 +56,7 @@ public sealed class GetWorkRouteReportHandler(HouseCenterDbContext db)
                 .ToListAsync(ct);
 
         return new WorkRouteReportResponse(
-            request.WorkRouteId, route.RouteName, route.Destinations.Count,
+            request.WorkRouteId, route.RouteName, stopsCount,
             collaboratorsOnRoute, sessionsLast30Days, patientsVisited, collaboratorNames);
     }
 }

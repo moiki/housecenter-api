@@ -405,13 +405,14 @@ public class DatabaseSeeder(
             TopicKey = "workroutes.manage",
             Title = "Cómo crear y editar una ruta de trabajo",
             Summary = "Desde Work Routes, New Route abre un formulario con nombre, " +
-                      "descripción, clínica y una lista de destinos (paradas). La clínica " +
-                      "no se puede cambiar después de crear la ruta.",
+                      "descripción y clínica — las paradas ya no se ingresan ahí, se " +
+                      "asignan desde la ficha de cada paciente. La clínica no se puede " +
+                      "cambiar después de crear la ruta.",
             Body = """
                    ## Crear y editar rutas de trabajo
 
                    La pantalla **Work Routes** lista las rutas existentes con su clínica
-                   asociada y la cantidad de destinos.
+                   asociada y la cantidad de **pacientes** asignados a cada una.
 
                    **Crear una ruta:** hacé clic en **New Route**. El formulario pide, en
                    orden:
@@ -420,17 +421,25 @@ public class DatabaseSeeder(
                      no se puede cambiar más adelante**, así que confirmá que sea la
                      correcta antes de guardar.
                    - **Featured image URL** (opcional).
-                   - **Destinations** — al menos una parada, cada una con **Name**,
-                     **Description** y un link opcional de Google Maps. El botón **Add
-                     destination** agrega otra parada.
 
-                   Guardá con **Create work route**.
+                   Guardá con **Create work route**. Fijate que ya no hay un campo de
+                   "Destinations" — las paradas de una ruta son, directamente, los
+                   pacientes que tiene asignados (ver más abajo cómo asignarlos).
 
                    **Editar una ruta:** en la página de detalle podés modificar el nombre,
-                   la descripción, la imagen y las paradas (ahí se llaman "Stop #N"). El
-                   campo **Clinic** no aparece en esta pantalla — como se explicó arriba,
-                   no es editable. Guardá con **Save changes**; vas a ver un "Saved!" junto
-                   al botón para confirmar que se guardó, sin salir de la pantalla.
+                   la descripción y la imagen. El campo **Clinic** no aparece en esta
+                   pantalla — como se explicó arriba, no es editable. Guardá con **Save
+                   changes**; vas a ver un "Saved!" junto al botón para confirmar que se
+                   guardó, sin salir de la pantalla.
+
+                   **Sección "Patients on this route":** debajo del formulario vas a ver,
+                   de solo lectura, la lista de pacientes asignados a esta ruta —
+                   dirección y hora de visita, ordenados por hora. No se edita desde acá:
+                   para agregar, quitar o reordenar pacientes, abrí la ficha de cada
+                   paciente (pantalla **Patients**) y usá los campos **Work route** y
+                   **Visit time on route**. Como no hay estado de "visitada" por parada,
+                   la hora que pongas es la que se usa para ordenar el mapa de progreso
+                   del día en el calendario de rutas.
 
                    **Desactivar una ruta:** solo se puede desde la lista (ícono de basura),
                    no desde el detalle. Al igual que con las clínicas, no hay forma de

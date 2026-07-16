@@ -199,7 +199,7 @@ public sealed class ConsultationFlowTests(ApiFactory factory)
             $"Consulta{Guid.NewGuid():N}"[..20], "Paciente", null,
             new DateTime(2016, 3, 1, 0, 0, 0, DateTimeKind.Utc),
             Gender.Female, "Nicaragua", null, "Managua", "Dirección 456", null,
-            AttentionType.Medical, null, null));
+            AttentionType.Medical, null, null, null));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<PatientResponse>())!;
     }

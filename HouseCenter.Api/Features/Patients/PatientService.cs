@@ -70,7 +70,7 @@ public sealed class PatientService(
                 p.Id, p.FirstName, p.LastName, p.Profile, p.BirthDate,
                 p.Gender.ToString(), p.Country, p.State, p.City,
                 p.Address, p.Description, p.PrimaryAttentionType.ToString(),
-                p.ClinicId, p.WorkRouteId, p.IsActive));
+                p.ClinicId, p.WorkRouteId, p.RouteVisitTime, p.IsActive));
 
         return await query.ToPagedResultAsync(paging, ct);
     }
@@ -84,7 +84,7 @@ public sealed class PatientService(
                 p.Id, p.FirstName, p.LastName, p.Profile, p.BirthDate,
                 p.Gender.ToString(), p.Country, p.State, p.City,
                 p.Address, p.Description, p.PrimaryAttentionType.ToString(),
-                p.ClinicId, p.WorkRouteId, p.IsActive))
+                p.ClinicId, p.WorkRouteId, p.RouteVisitTime, p.IsActive))
             .SingleOrDefaultAsync(ct);
 
         return patient is not null ? patient : PatientNotFound;
@@ -106,7 +106,8 @@ public sealed class PatientService(
             Description = request.Description,
             PrimaryAttentionType = request.PrimaryAttentionType,
             ClinicId = request.ClinicId,
-            WorkRouteId = request.WorkRouteId
+            WorkRouteId = request.WorkRouteId,
+            RouteVisitTime = request.RouteVisitTime
         };
 
         patients.Add(patient);
@@ -133,6 +134,7 @@ public sealed class PatientService(
         patient.PrimaryAttentionType = request.PrimaryAttentionType;
         patient.ClinicId = request.ClinicId;
         patient.WorkRouteId = request.WorkRouteId;
+        patient.RouteVisitTime = request.RouteVisitTime;
 
         await patients.SaveChangesAsync(ct);
         return ToPatientResponse(patient);
@@ -219,7 +221,7 @@ public sealed class PatientService(
                 p.Id, p.FirstName, p.LastName, p.Profile, p.BirthDate,
                 p.Gender.ToString(), p.Country, p.State, p.City,
                 p.Address, p.Description, p.PrimaryAttentionType.ToString(),
-                p.ClinicId, p.WorkRouteId, p.IsActive))
+                p.ClinicId, p.WorkRouteId, p.RouteVisitTime, p.IsActive))
             .SingleOrDefaultAsync(ct);
         if (patient is null) return PatientNotFound;
 
@@ -511,7 +513,7 @@ public sealed class PatientService(
         p.Id, p.FirstName, p.LastName, p.Profile, p.BirthDate,
         p.Gender.ToString(), p.Country, p.State, p.City,
         p.Address, p.Description, p.PrimaryAttentionType.ToString(),
-        p.ClinicId, p.WorkRouteId, p.IsActive);
+        p.ClinicId, p.WorkRouteId, p.RouteVisitTime, p.IsActive);
 
     private static TreatmentResponse ToTreatmentResponse(Treatment t) => new(
         t.Id, t.PatientId, t.Name, t.Description, t.Profile,
