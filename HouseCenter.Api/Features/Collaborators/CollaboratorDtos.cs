@@ -17,7 +17,12 @@ public sealed record CollaboratorResponse(
     string ClinicName,
     Guid? WorkRouteId,
     IReadOnlyList<PositionDto> Positions,
-    bool IsActive);
+    bool IsActive,
+    // Null == legacy/roster-only row (no linked User) — see
+    // openspec/changes/collaborator-user-link/design.md Decision 5. IsLinked is an explicit
+    // indicator so callers never have to infer onboarding state from UserId == null.
+    Guid? UserId,
+    bool IsLinked);
 
 public sealed record CreateCollaboratorRequest(
     string FirstName,
@@ -31,7 +36,11 @@ public sealed record CreateCollaboratorRequest(
     string? ProfilePicture,
     Guid ClinicId,
     Guid? WorkRouteId,
-    IReadOnlyList<string> Positions);
+    IReadOnlyList<string> Positions,
+    // Optional — resolved by CollaboratorService.CreateAsync in this order: (a) explicit
+    // UserId -> validate Member + unlinked; (b) null -> case-insensitive email-match to an
+    // unlinked Member User; (c) no match -> null (pending/legacy row). See design.md Decision 1.
+    Guid? UserId = null);
 
 public sealed record UpdateCollaboratorRequest(
     string FirstName,

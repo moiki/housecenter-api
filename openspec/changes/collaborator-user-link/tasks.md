@@ -40,12 +40,12 @@ Chain strategy: pending
 
 ## Phase 2: Provisioning (PR 2)
 
-- [ ] 2.1 `CollaboratorDtos.cs`: optional `UserId` on create request; `UserId`+`IsLinked` on response; update all `CollaboratorResponse` projections in `CollaboratorService`.
-- [ ] 2.2 `CollaboratorService.CreateAsync`: resolve `UserId` (explicit → validate Member+unlinked; else email-match unlinked Member; else null); lowercase email on write.
-- [ ] 2.3 New errors `collaborators.email_taken`, `collaborators.user_already_linked` (Conflict); dup-email check before insert/update.
-- [ ] 2.4 `GetMeAsync`: match `c.UserId == callerId`, drop the email "first match" fallback.
-- [ ] 2.5 `AuthService.SignupAsync`: after Member User created, email-match unlinked Collaborator → link; else log warning, no fabricated row.
-- [ ] 2.6 Integration tests: create w/ UserId (success/409/400), email-match link, no-match pending, dup email 409; signup links roster row or warns; `GET /collaborators/me` returns linked profile or 404 unlinked.
+- [x] 2.1 `CollaboratorDtos.cs`: optional `UserId` on create request; `UserId`+`IsLinked` on response; update all `CollaboratorResponse` projections in `CollaboratorService`.
+- [x] 2.2 `CollaboratorService.CreateAsync`: resolve `UserId` (explicit → validate Member+unlinked; else email-match unlinked Member; else null); lowercase email on write.
+- [x] 2.3 New errors `collaborators.email_taken`, `collaborators.user_already_linked` (Conflict); dup-email check before insert/update.
+- [x] 2.4 `GetMeAsync`: match `c.UserId == callerId`, drop the email "first match" fallback.
+- [x] 2.5 `AuthService.SignupAsync`: after Member User created, email-match unlinked Collaborator → link; else log warning, no fabricated row.
+- [x] 2.6 Integration tests: create w/ UserId (success/409/400), email-match link, no-match pending, dup email 409; signup links roster row or warns; `GET /collaborators/me` returns linked profile or 404 unlinked.
 
 ## Phase 3: Reconciliation (PR 3)
 

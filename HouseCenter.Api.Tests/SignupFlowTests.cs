@@ -7,6 +7,8 @@ using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Features.Auth;
+using HouseCenter.Api.Features.Clinics;
+using HouseCenter.Api.Features.Collaborators;
 using HouseCenter.Api.Features.Invitations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -120,6 +122,112 @@ public sealed class SignupFlowTests(ApiFactory factory)
             "signup-flow-device", null, DevicePlatform.Web));
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    // ─── Member signup links an existing Collaborator, never fabricates one (Phase 2) ─────
+
+    [Fact]
+    public async Task Signup_WithMatchingUnlinkedCollaborator_LinksExistingRosterRow()
+    {
+        var inviteeEmail = $"roster-{Guid.NewGuid():N}@test.local";
+        const string inviteePassword = "Member123!test";
+
+        // An admin already rostered this person (e.g. from a paper form) before the
+        // invitation existed — a pending/legacy Collaborator with no UserId.
+        var adminClient = await factory.CreateAuthenticatedClientAsync();
+        var clinic = await CreateClinicAsync(adminClient);
+        var collaborator = await CreateCollaboratorAsync(adminClient, clinic.Id, "Roster", "Pendiente", inviteeEmail);
+        collaborator.UserId.Should().BeNull();
+        collaborator.IsLinked.Should().BeFalse();
+
+        var ownerTokens = await LoginAsOwnerAsync();
+        var memberRoleId = await GetRoleIdAsync(RoleNames.Member);
+        var createResponse = await SendAuthorizedAsync(HttpMethod.Post, "/invitations",
+            ownerTokens.AccessToken, new CreateInvitationRequest(inviteeEmail, memberRoleId));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var invitation = (await createResponse.Content.ReadFromJsonAsync<InvitationResponse>())!;
+        var invitationToken = await CreateInvitationTokenAsync(invitation.Id);
+
+        var signupResponse = await _client.PostAsJsonAsync("/auth/signup", new SignupRequest(
+            invitationToken, "Roster", "Member", inviteePassword,
+            "Some address 123", null, null, null, null,
+            "signup-flow-device-roster", null, DevicePlatform.Web));
+        signupResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var signupTokens = (await signupResponse.Content.ReadFromJsonAsync<TokenPairResponse>())!;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+            var newUser = await db.Users.SingleAsync(u => u.Email == inviteeEmail);
+
+            var rosterRows = await db.Collaborators
+                .Where(c => c.Email == inviteeEmail.ToLowerInvariant())
+                .ToListAsync();
+            rosterRows.Should().ContainSingle(); // linked, never a second/fabricated row
+            rosterRows[0].Id.Should().Be(collaborator.Id);
+            rosterRows[0].UserId.Should().Be(newUser.Id);
+        }
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", signupTokens.AccessToken);
+        var meResponse = await _client.GetAsync("/collaborators/me");
+
+        meResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var me = await meResponse.Content.ReadFromJsonAsync<CollaboratorResponse>();
+        me!.Id.Should().Be(collaborator.Id);
+    }
+
+    [Fact]
+    public async Task Signup_WithNoMatchingCollaborator_LeavesUserUnlinkedWithoutFabricatingRow()
+    {
+        var inviteeEmail = $"unlinked-{Guid.NewGuid():N}@test.local";
+        const string inviteePassword = "Member123!test";
+
+        var ownerTokens = await LoginAsOwnerAsync();
+        var memberRoleId = await GetRoleIdAsync(RoleNames.Member);
+        var createResponse = await SendAuthorizedAsync(HttpMethod.Post, "/invitations",
+            ownerTokens.AccessToken, new CreateInvitationRequest(inviteeEmail, memberRoleId));
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var invitation = (await createResponse.Content.ReadFromJsonAsync<InvitationResponse>())!;
+        var invitationToken = await CreateInvitationTokenAsync(invitation.Id);
+
+        var signupResponse = await _client.PostAsJsonAsync("/auth/signup", new SignupRequest(
+            invitationToken, "Sin", "Roster", inviteePassword,
+            "Some address 123", null, null, null, null,
+            "signup-flow-device-unlinked", null, DevicePlatform.Web));
+        signupResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var signupTokens = (await signupResponse.Content.ReadFromJsonAsync<TokenPairResponse>())!;
+
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
+            var rosterRows = await db.Collaborators
+                .Where(c => c.Email == inviteeEmail.ToLowerInvariant())
+                .ToListAsync();
+            rosterRows.Should().BeEmpty(); // never fabricate — Collaborator.ClinicId is required and unknown here
+        }
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", signupTokens.AccessToken);
+        var meResponse = await _client.GetAsync("/collaborators/me");
+
+        meResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    private static async Task<ClinicResponse> CreateClinicAsync(HttpClient client)
+    {
+        var response = await client.PostAsJsonAsync("/api/v1/clinics",
+            new CreateClinicRequest($"Clínica {Guid.NewGuid():N}"[..25], "Calle Central"));
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ClinicResponse>())!;
+    }
+
+    private static async Task<CollaboratorResponse> CreateCollaboratorAsync(
+        HttpClient client, Guid clinicId, string firstName, string lastName, string email)
+    {
+        var response = await client.PostAsJsonAsync("/collaborators", new CreateCollaboratorRequest(
+            firstName, lastName, email, "8888-8888", "Dirección colaborador", "Nicaragua", null, "Managua", null,
+            clinicId, null, ["Fisioterapeuta"]));
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<CollaboratorResponse>())!;
     }
 
     private async Task<TokenPairResponse> LoginAsOwnerAsync()

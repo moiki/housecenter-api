@@ -191,6 +191,118 @@ public sealed class CollaboratorCrudTests(ApiFactory factory)
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
+    // ─── POST /collaborators — UserId resolution (Phase 2 provisioning) ───────
+
+    [Fact]
+    public async Task CreateCollaborator_WithExplicitUserId_LinksAndReturnsIsLinkedTrue()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+        var userEmail = $"link-{Guid.NewGuid():N}@test.local";
+        var userId = await InsertUserAsync(userEmail, "Member123!test");
+
+        // Deliberately a DIFFERENT email than the User's — proves the explicit UserId path
+        // does not depend on an email match.
+        var response = await PostCollaboratorAsync(
+            admin, clinic.Id, "Carla", "Vinculada", $"other-{Guid.NewGuid():N}@test.local", userId);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var collaborator = await response.Content.ReadFromJsonAsync<CollaboratorResponse>();
+        collaborator!.UserId.Should().Be(userId);
+        collaborator.IsLinked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateCollaborator_WithExplicitUserId_AlreadyLinked_Returns409()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+        var userEmail = $"already-{Guid.NewGuid():N}@test.local";
+        var userId = await InsertUserAsync(userEmail, "Member123!test");
+        await CreateCollaboratorAsync(
+            admin, clinic.Id, "Primero", "Vinculado", $"first-{Guid.NewGuid():N}@test.local", userId);
+
+        var response = await PostCollaboratorAsync(
+            admin, clinic.Id, "Segundo", "Duplicado", $"second-{Guid.NewGuid():N}@test.local", userId);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task CreateCollaborator_WithExplicitUserId_UserNotMember_Returns400()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+        var userEmail = $"doctor-{Guid.NewGuid():N}@test.local";
+        var userId = await InsertUserAsync(userEmail, "Doctor123!test", RoleNames.Doctor);
+
+        var response = await PostCollaboratorAsync(
+            admin, clinic.Id, "No", "Miembro", $"nomember-{Guid.NewGuid():N}@test.local", userId);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateCollaborator_NoUserId_EmailMatchesUnlinkedMember_LinksAutomatically()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+        var email = $"automatch-{Guid.NewGuid():N}@test.local";
+        var userId = await InsertUserAsync(email, "Member123!test");
+
+        var response = await PostCollaboratorAsync(admin, clinic.Id, "Auto", "Match", email);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var collaborator = await response.Content.ReadFromJsonAsync<CollaboratorResponse>();
+        collaborator!.UserId.Should().Be(userId);
+        collaborator.IsLinked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateCollaborator_NoUserIdOrMatch_CreatesPendingRowWithNullUserId()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+
+        var response = await PostCollaboratorAsync(admin, clinic.Id, "Pendiente", "SinVinculo");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var collaborator = await response.Content.ReadFromJsonAsync<CollaboratorResponse>();
+        collaborator!.UserId.Should().BeNull();
+        collaborator.IsLinked.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CreateCollaborator_DuplicateEmail_Returns409()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+        var email = $"dup-{Guid.NewGuid():N}@test.local";
+        await CreateCollaboratorAsync(admin, clinic.Id, "Original", "Colaborador", email);
+
+        var response = await PostCollaboratorAsync(admin, clinic.Id, "Duplicado", "Colaborador", email);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task UpdateCollaborator_DuplicateEmail_Returns409()
+    {
+        var admin = await Client();
+        var clinic = await CreateClinicAsync(admin);
+        var emailA = $"updatedup-a-{Guid.NewGuid():N}@test.local";
+        var emailB = $"updatedup-b-{Guid.NewGuid():N}@test.local";
+        await CreateCollaboratorAsync(admin, clinic.Id, "Alpha", "Uno", emailA);
+        var second = await CreateCollaboratorAsync(admin, clinic.Id, "Beta", "Dos", emailB);
+
+        var response = await admin.PutAsJsonAsync($"{Base}/{second.Id}", new UpdateCollaboratorRequest(
+            second.FirstName, second.LastName, emailA, second.PhoneNumber, second.Address,
+            second.Country, second.State, second.City, second.ProfilePicture,
+            second.ClinicId, second.WorkRouteId, second.Positions.Select(p => p.Name).ToList()));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private static async Task<ClinicResponse> CreateClinicAsync(HttpClient client)
@@ -202,24 +314,25 @@ public sealed class CollaboratorCrudTests(ApiFactory factory)
     }
 
     private static Task<HttpResponseMessage> PostCollaboratorAsync(
-        HttpClient client, Guid clinicId, string firstName, string lastName, string? email = null) =>
+        HttpClient client, Guid clinicId, string firstName, string lastName, string? email = null, Guid? userId = null) =>
         client.PostAsJsonAsync(Base, new CreateCollaboratorRequest(
             firstName, lastName, email ?? $"colab-{Guid.NewGuid():N}@test.local", "8888-8888",
             "Dirección colaborador", "Nicaragua", null, "Managua", null,
-            clinicId, null, ["Fisioterapeuta"]));
+            clinicId, null, ["Fisioterapeuta"], userId));
 
     private static async Task<CollaboratorResponse> CreateCollaboratorAsync(
-        HttpClient client, Guid clinicId, string firstName, string lastName, string? email = null)
+        HttpClient client, Guid clinicId, string firstName, string lastName, string? email = null, Guid? userId = null)
     {
-        var response = await PostCollaboratorAsync(client, clinicId, firstName, lastName, email);
+        var response = await PostCollaboratorAsync(client, clinicId, firstName, lastName, email, userId);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<CollaboratorResponse>())!;
     }
 
     /// <summary>Direct DbContext insert (mirrors <c>ReportTests.SeedUserAsync</c>) — a known
     /// password lets the test log in afterward via <see cref="LoginAsAsync"/>, unlike
-    /// ReportTests' variant which never needs to authenticate as the seeded user.</summary>
-    private async Task InsertUserAsync(string email, string password, string roleName = RoleNames.Member)
+    /// ReportTests' variant which never needs to authenticate as the seeded user. Returns the
+    /// new User's Id so callers can exercise the explicit-UserId resolution path.</summary>
+    private async Task<Guid> InsertUserAsync(string email, string password, string roleName = RoleNames.Member)
     {
         using var scope = factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HouseCenterDbContext>();
@@ -238,6 +351,8 @@ public sealed class CollaboratorCrudTests(ApiFactory factory)
 
         db.Users.Add(user);
         await db.SaveChangesAsync();
+
+        return user.Id;
     }
 
     private async Task<HttpClient> LoginAsAsync(string email, string password)
