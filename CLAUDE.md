@@ -94,9 +94,10 @@ A patient can have both types. Treatments are typed accordingly.
 | Error handling | Result Pattern (`Result<T>`, `Error`, `ErrorType`) + ProblemDetails RFC 9457 |
 | Auth | ASP.NET Core JWT — 3 secrets (access/invitation/reset), `token_kind` claim. Refresh is an opaque, hashed, DB-persisted `UserSession` token — not a JWT (see `openspec/changes/device-bound-sessions/`) |
 | JwtBearer config | **Lazy** via `AddOptions<JwtBearerOptions>().Configure<IOptions<JwtOptions>>()` — NEVER eager snapshot (breaks WebApplicationFactory) |
-| Validation | FluentValidation + `ValidationBehavior` in MediatR pipeline |
+| Validation | FluentValidation via `ValidationFilter<T>` endpoint filter (`.WithValidation<T>()`) — validates the HTTP request DTO before MediatR runs. See gotchas for why the MediatR `ValidationBehavior` itself is currently dead code. |
+| Rate limiting | Opt-in per-request via `IRateLimitedRequest` + `RateLimitBehavior` in MediatR pipeline — in-memory fixed-window counter (20/min), 429 on exceed |
 | Logging | Serilog structured — bootstrap logger + request logging + CorrelationId |
-| MediatR pipeline order | `PerformanceBehavior → LoggingBehavior → ValidationBehavior → Handler` |
+| MediatR pipeline order | `PerformanceBehavior → LoggingBehavior → RateLimitBehavior → ValidationBehavior → Handler` |
 | MediatR version | **12.5.0** pinned — 12.x is Apache 2.0; 13+ is commercial |
 | DI | Built-in + open generic: `AddScoped(typeof(IRepository<>), typeof(EfRepository<>))` |
 | Architecture | Vertical slices (`Features/`) — service pattern OR CQRS per module (see below) |
@@ -142,8 +143,17 @@ A patient can have both types. Treatments are typed accordingly.
   is never checked at `SaveChangesAsync` under the InMemory provider — inserting two rows with the same
   key succeeds silently. A unit test asserting duplicate-rejection is testing nothing; verify real
   constraint behavior (409 on conflict) with an integration test against actual Postgres instead.
-- **MediatR cast in ValidationBehavior**: `(TResponse)(Result)error` — double cast needed because
-  compiler can't verify `Result → TResponse` at compile time, even with `where TResponse : Result`.
+- **`ValidationBehavior`'s double-cast is dead code, and unsafe if it ever runs**: request validation
+  actually happens via `ValidationFilter<T>` (`.WithValidation<T>()`), an endpoint filter that returns
+  400 before MediatR is even invoked — no `IValidator<TCommand>` is ever registered, so
+  `ValidationBehavior.validators.Any()` is always `false` and its `return (TResponse)(Result)error;`
+  never executes. That line is also **broken** if it ever did: `(Result)error` always builds a plain
+  base `Result` via `Result`'s own `implicit operator`, and downcasting that to a closed `Result<T>`
+  throws `InvalidCastException` — `Result<T>` has its own separate `implicit operator Result<T>(Error)`
+  that the compiler can't reach through a generic type parameter. Any NEW MediatR pipeline behavior
+  that needs to short-circuit with an `Error` for `TResponse : Result` must use `RateLimitBehavior`'s
+  approach instead: reflect for `TResponse`'s own `op_Implicit(Error)` and invoke it (cached per closed
+  type), which correctly resolves to `Result<T>`'s operator when `TResponse` is generic.
 - **DbContext is not thread-safe**: `Task.WhenAll` over multiple hot queries on one scoped
   context races and throws "a second operation was started on this context instance".
   Await queries sequentially; true parallelism needs one context per query (`IDbContextFactory`).
