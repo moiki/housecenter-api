@@ -39,6 +39,15 @@ public static class CollaboratorEndpoints
             .WithValidation<CreateCollaboratorRequest>()
             .WithName("CreateCollaborator");
 
+        // Maintenance endpoint (Phase 3, reconciliation) — deliberately NOT Dev/Staging-gated
+        // like POST /seed: /seed only inserts fake test data, but this backfills real prod
+        // data, so gating it to non-prod would defeat its purpose. Idempotent; safe to
+        // re-run. See tasks.md "Decisions Resolved" #2 and design.md Decision 2.
+        group.MapPost("/reconcile", async (ICollaboratorReconciliationService service, CancellationToken ct) =>
+                (await service.ReconcileAsync(ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
+            .WithName("ReconcileCollaborators");
+
         group.MapPut("/{id:guid}", async (Guid id, UpdateCollaboratorRequest request, ICollaboratorService service, CancellationToken ct) =>
                 (await service.UpdateAsync(id, request, ct)).ToHttpResult())
             .RequireAuthorization(PolicyNames.AdministratorOrAbove)

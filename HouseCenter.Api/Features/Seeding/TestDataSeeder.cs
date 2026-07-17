@@ -120,15 +120,22 @@ public sealed class TestDataSeeder(
 
     // ---------- Collaborators (field staff records, distinct from User accounts) ----------
 
+    // UserEmail links this roster row directly to its Member User seed at insert time (null
+    // == deliberate legacy/roster-only row, no login). Realigned per
+    // openspec/changes/collaborator-user-link/design.md Decision 2: member@/member2@ mirror
+    // their Member User seeds in BOTH email and name, so reconciliation never needs to touch
+    // them — zero accidental legacy rows. pedro.castillo@ is the one intentional legacy row,
+    // exercising that path (design.md Decision 5: a permanently valid state, not an anomaly).
     private sealed record CollaboratorSeed(
-        string Email, string First, string Last, string Phone, string Clinic, string[] Positions);
+        string Email, string First, string Last, string Phone, string Clinic, string[] Positions,
+        string? UserEmail = null);
 
     private static readonly CollaboratorSeed[] TestCollaborators =
     [
-        new("juan.perez@housecenter.dev", "Juan", "Pérez", "+505 8888 0001",
-            "Clínica Central Managua", ["Fisioterapeuta"]),
-        new("lucia.mendoza@housecenter.dev", "Lucía", "Mendoza", "+505 8888 0002",
-            "Clínica San Ramón", ["Educadora", "Coordinadora de Ruta"]),
+        new("member@housecenter.dev", "Carlos", "López", "+505 8888 0001",
+            "Clínica Central Managua", ["Fisioterapeuta"], "member@housecenter.dev"),
+        new("member2@housecenter.dev", "María", "Gutiérrez", "+505 8888 0002",
+            "Clínica San Ramón", ["Educadora", "Coordinadora de Ruta"], "member2@housecenter.dev"),
         new("pedro.castillo@housecenter.dev", "Pedro", "Castillo", "+505 8888 0003",
             "Clínica El Tuma", ["Fisioterapeuta"])
     ];
@@ -149,6 +156,13 @@ public sealed class TestDataSeeder(
             .Where(c => TestClinics.Select(tc => tc.Name).Contains(c.Name))
             .ToDictionaryAsync(c => c.Name, c => c.Id, ct);
 
+        // Seeded users are guaranteed to exist — SeedUsersAsync ran first. Only rows with a
+        // UserEmail need a lookup; pedro.castillo@ (UserEmail == null) stays legacy.
+        var userEmails = missing.Where(c => c.UserEmail is not null).Select(c => c.UserEmail!).ToArray();
+        var userIdsByEmail = await db.Users.IgnoreQueryFilters()
+            .Where(u => userEmails.Contains(u.Email))
+            .ToDictionaryAsync(u => u.Email, u => u.Id, ct);
+
         db.Collaborators.AddRange(missing.Select(c => new Collaborator
         {
             FirstName = c.First,
@@ -157,6 +171,7 @@ public sealed class TestDataSeeder(
             PhoneNumber = c.Phone,
             Address = "Nicaragua",
             ClinicId = clinicIds[c.Clinic],
+            UserId = c.UserEmail is not null ? userIdsByEmail[c.UserEmail] : null,
             Positions = c.Positions.Select(p => new Position { Name = p }).ToList()
         }));
         await db.SaveChangesAsync(ct);

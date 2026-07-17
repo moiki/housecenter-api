@@ -55,3 +55,14 @@ public sealed record UpdateCollaboratorRequest(
     Guid ClinicId,
     Guid? WorkRouteId,
     IReadOnlyList<string> Positions);
+
+// Phase 3 (Reconciliation) — see CollaboratorReconciliationService and
+// openspec/changes/collaborator-user-link/design.md Decision 2.
+
+/// <summary>A Member User with no linked Collaborator after a reconciliation pass — a
+/// transient anomaly per design.md Decision 5, not a legacy row. Surfaced here (and
+/// structured-warn-logged) instead of a separate GET report endpoint, per tasks.md
+/// "Decisions Resolved" #1.</summary>
+public sealed record UnlinkedMemberUserDto(Guid Id, string Email, string FirstName, string LastName);
+
+public sealed record ReconciliationResponse(int MatchedCount, IReadOnlyList<UnlinkedMemberUserDto> UnlinkedMemberUsers);
