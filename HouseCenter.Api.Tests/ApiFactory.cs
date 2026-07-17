@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using HouseCenter.Api.Common.Email;
 using HouseCenter.Api.Common.Push;
+using HouseCenter.Api.Common.Translation;
 using HouseCenter.Api.Domain.Entities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -37,6 +38,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
     /// <summary>Captures push sends instead of hitting FCM; supports invalid-token simulation.</summary>
     public RecordingPushSender Push { get; } = new();
 
+    /// <summary>Captures translation calls instead of hitting Google Cloud Translation.</summary>
+    public RecordingTranslationClient Translation { get; } = new();
+
     /// <summary>Fake clock driving ONLY <see cref="UserSession"/> TTL logic (design.md
     /// TimeProvider integration) — never JwtBearer's internal access-token clock, so
     /// advancing it has no effect on bearer-protected endpoints; time-driven refresh
@@ -59,6 +63,8 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             services.AddSingleton<IEmailService>(Emails);
             services.RemoveAll<IPushSender>();
             services.AddSingleton<IPushSender>(Push);
+            services.RemoveAll<ITranslationClient>();
+            services.AddSingleton<ITranslationClient>(Translation);
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Time);
         });
