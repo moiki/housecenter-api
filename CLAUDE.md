@@ -164,6 +164,18 @@ A patient can have both types. Treatments are typed accordingly.
   at `SaveChangesAsync`. Fixed globally via a `ValueConverter` in
   `HouseCenterDbContext.OnModelCreating` that tags every `DateTime`/`DateTime?` property as
   UTC — new entities get this for free, no per-property `SpecifyKind` needed.
+- **A stray malformed git ref silently breaks `git fetch`**: a local ref file with a space in
+  its name (e.g. `refs/heads/main 2`, `refs/remotes/origin/main 2`) makes git print "warning:
+  ignoring ref with broken name" but still choke during fetch negotiation ("fatal: bad object
+  ..."), so `git fetch`/`git pull` fails silently — meanwhile `git checkout main` still reports
+  "up to date with origin/main" because that only compares against the stale local
+  `refs/remotes/origin/main` cache, not a live check. Symptom seen in practice: a branch created
+  off that stale local `main` opens a PR that GitHub reports as `mergeable_state: "dirty"`, and
+  Actions never queues a run for it (looks like a CI/billing outage, isn't one). Fix: delete the
+  malformed ref file(s) directly under `.git/refs/...`, then `git fetch` works again — rebase any
+  branch created off the stale `main` onto the real one before reusing it. Check
+  `gh api repos/{owner}/{repo}/pulls/{n} --jq '{mergeable, mergeable_state}'` before assuming a
+  GitHub Actions problem.
 
 ---
 
