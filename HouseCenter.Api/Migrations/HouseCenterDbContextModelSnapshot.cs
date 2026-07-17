@@ -173,12 +173,19 @@ namespace HouseCenter.Api.Migrations
                     b.Property<DateTime>("UpdatedDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("WorkRouteId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ClinicId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasFilter("\"UserId\" IS NOT NULL");
 
                     b.HasIndex("WorkRouteId");
 
@@ -1135,12 +1142,19 @@ namespace HouseCenter.Api.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("HouseCenter.Api.Domain.Entities.User", "User")
+                        .WithOne("Collaborator")
+                        .HasForeignKey("HouseCenter.Api.Domain.Entities.Collaborator", "UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("HouseCenter.Api.Domain.Entities.WorkRoute", "WorkRoute")
                         .WithMany("Collaborators")
                         .HasForeignKey("WorkRouteId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Clinic");
+
+                    b.Navigation("User");
 
                     b.Navigation("WorkRoute");
                 });
@@ -1421,6 +1435,8 @@ namespace HouseCenter.Api.Migrations
 
             modelBuilder.Entity("HouseCenter.Api.Domain.Entities.User", b =>
                 {
+                    b.Navigation("Collaborator");
+
                     b.Navigation("Comments");
 
                     b.Navigation("Sessions");
