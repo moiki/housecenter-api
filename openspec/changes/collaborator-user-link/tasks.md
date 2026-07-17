@@ -9,11 +9,11 @@
 | Chained PRs recommended | Yes |
 | Suggested split | PR1 Schema → PR2 Provisioning → PR3 Reconciliation → PR4 Reports |
 | Delivery strategy | ask-on-risk |
-| Chain strategy | pending |
+| Chain strategy | stacked — resolved 2026-07-17, user confirmed chained PRs |
 
-Decision needed before apply: Yes
+Decision needed before apply: No (resolved)
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: stacked (`feat/collaborator-user-link-schema` → `-provisioning` → ...)
 400-line budget risk: High
 
 ### Suggested Work Units
