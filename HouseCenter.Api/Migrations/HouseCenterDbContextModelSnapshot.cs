@@ -183,6 +183,9 @@ namespace HouseCenter.Api.Migrations
 
                     b.HasIndex("ClinicId");
 
+                    b.HasIndex("Email")
+                        .IsUnique();
+
                     b.HasIndex("UserId")
                         .IsUnique()
                         .HasFilter("\"UserId\" IS NOT NULL");

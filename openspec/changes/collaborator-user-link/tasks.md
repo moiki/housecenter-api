@@ -49,12 +49,12 @@ Chain strategy: stacked (`feat/collaborator-user-link-schema` → `-provisioning
 
 ## Phase 3: Reconciliation (PR 3)
 
-- [ ] 3.1 New `CollaboratorReconciliationService.ReconcileAsync`: lowercase emails; match unlinked Collaborator↔Member User 1:1; collect gaps both directions.
-- [ ] 3.2 `POST /collaborators/reconcile` endpoint: returns matched count + unlinked-Member-User list.
-- [ ] 3.3 `EmployeeConfiguration.cs` add unique `Email` index; `dotnet ef migrations add AddCollaboratorEmailUnique` — apply only post-reconciliation.
-- [ ] 3.4 `TestDataSeeder.cs`: realign `member@`/`member2@` Collaborator seeds to match Users, set `UserId`; keep `pedro.castillo@` as sole legacy row.
-- [ ] 3.5 Unit tests: match/skip-linked/gap logic; migration test — unique index fails fast on pre-existing dupes.
-- [ ] 3.6 Integration test: reconcile links seeded pairs, reports legacy row + any unlinked Member User.
+- [x] 3.1 New `CollaboratorReconciliationService.ReconcileAsync`: lowercase emails; match unlinked Collaborator↔Member User 1:1; collect gaps both directions.
+- [x] 3.2 `POST /collaborators/reconcile` endpoint: returns matched count + unlinked-Member-User list.
+- [x] 3.3 `EmployeeConfiguration.cs` add unique `Email` index; `dotnet ef migrations add AddCollaboratorEmailUnique` — apply only post-reconciliation.
+- [x] 3.4 `TestDataSeeder.cs`: realign `member@`/`member2@` Collaborator seeds to match Users, set `UserId`; keep `pedro.castillo@` as sole legacy row.
+- [x] 3.5 Unit tests: match/skip-linked/gap logic; migration test — unique index fails fast on pre-existing dupes.
+- [x] 3.6 Integration test: reconcile links seeded pairs, reports legacy row + any unlinked Member User.
 
 ## Phase 4: Reports (PR 4)
 

@@ -154,6 +154,7 @@ try
     builder.Services.AddScoped<IUserService, UserService>();
     builder.Services.AddScoped<IWorkRouteService, WorkRouteService>();
     builder.Services.AddScoped<ICollaboratorService, CollaboratorService>();
+    builder.Services.AddScoped<ICollaboratorReconciliationService, CollaboratorReconciliationService>();
     builder.Services.AddScoped<IPatientService, PatientService>();
     builder.Services.AddScoped<IEmailService, SmtpEmailService>();
     // Resolved only by POST /seed, which is mapped in Development/Staging exclusively

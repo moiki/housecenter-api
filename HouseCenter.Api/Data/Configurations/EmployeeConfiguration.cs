@@ -40,10 +40,19 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Collaborator>
         // Partial-unique: at most one Collaborator per User, but many Collaborators may have
         // UserId = null (legacy rows pending backfill/reconciliation). See
         // openspec/changes/collaborator-user-link/design.md Decision 3.
-        // Email unique index is deferred to Phase 3 (Migration B, post-reconciliation).
         builder.HasIndex(e => e.UserId)
             .IsUnique()
             .HasFilter("\"UserId\" IS NOT NULL");
+
+        // Phase 3 (Migration B, AddCollaboratorEmailUnique): plain unique index, mirroring
+        // User.Email (UserConfiguration) exactly — no partial filter, so uniqueness applies
+        // regardless of IsActive, same as User.Email today. Applied ONLY after
+        // CollaboratorReconciliationService.ReconcileAsync has run and confirmed zero
+        // duplicate emails; the migration is designed to fail loudly on any remaining
+        // duplicate as an intentional safety gate, not a bug to work around. See design.md
+        // Decision 3.
+        builder.HasIndex(e => e.Email)
+            .IsUnique();
 
         // One-to-many: Employee -> Positions
         builder.HasMany(e => e.Positions)

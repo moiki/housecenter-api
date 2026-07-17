@@ -84,6 +84,23 @@ public sealed class CollaboratorUserLinkTests : IDisposable
     }
 
     [Fact]
+    public void EmailIndex_IsUnique_NoFilter()
+    {
+        // Phase 3 (Migration B, AddCollaboratorEmailUnique) — proves EmployeeConfiguration
+        // declares a PLAIN unique index on Email, mirroring UserConfiguration's Email index
+        // exactly (design.md Decision 3: "mirroring User.Email"). Not partial/filtered —
+        // uniqueness applies regardless of IsActive, same as User.Email today. Enforcement
+        // itself (throwing on a real duplicate insert) is NOT testable under InMemory — see
+        // CollaboratorEmailUniqueIndexTests (Postgres integration test).
+        var index = _db.Model.FindEntityType(typeof(Collaborator))!
+            .GetIndexes()
+            .Single(i => i.Properties.Count == 1 && i.Properties[0].Name == nameof(Collaborator.Email));
+
+        index.IsUnique.Should().BeTrue();
+        index.GetFilter().Should().BeNull();
+    }
+
+    [Fact]
     public async Task MultipleCollaborators_WithNullUserId_SaveWithoutError()
     {
         var clinic = NewClinic();
