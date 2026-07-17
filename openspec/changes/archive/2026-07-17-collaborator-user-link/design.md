@@ -122,7 +122,7 @@ Reports ──roster count(Collaborators)  +  session names(join via link)──
 |------|--------|-------------|
 | `Domain/Entities/Collaborator.cs` | Modify | Add `Guid? UserId` + `User? User` nav |
 | `Domain/Entities/User.cs` | Modify | Add inverse `Collaborator? Collaborator` nav |
-| `Data/Configurations/EmployeeConfiguration.cs` | Modify | `HasOne(c=>c.User).WithOne(u=>u.Collaborator).HasForeignKey<Collaborator>(c=>c.UserId).OnDelete(SetNull)`; partial-unique `UserId`; unique `Email` |
+| `Data/Configurations/EmployeeConfiguration.cs` | Modify | `HasOne(c=>c.User).WithOne(u=>u.Collaborator).HasForeignKey<Collaborator>(c=>c.UserId).OnDelete(SetNull)`; partial-unique `UserId` index (Email unique index deferred to Phase 3/Migration B). |
 | `Migrations/*_AddCollaboratorUserLink` | Create | Nullable FK + partial-unique index |
 | `Migrations/*_AddCollaboratorEmailUnique` | Create | Unique `Email` index (post-reconcile) |
 | `Features/Collaborators/CollaboratorDtos.cs` | Modify | `CreateCollaboratorRequest.UserId` (optional); `CollaboratorResponse.UserId` |

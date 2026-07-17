@@ -138,6 +138,10 @@ A patient can have both types. Treatments are typed accordingly.
   `GetByIdAsync` returns `null` for inactive records — the `!IsActive` branch is dead code.
 - **EF async methods in unit tests**: `AnyAsync`, `ToListAsync` require an EF query provider.
   `List<T>.AsQueryable()` doesn't work — use `UseInMemoryDatabase` instead.
+- **`UseInMemoryDatabase` doesn't enforce unique indexes**: `HasIndex(...).IsUnique()` (filtered or not)
+  is never checked at `SaveChangesAsync` under the InMemory provider — inserting two rows with the same
+  key succeeds silently. A unit test asserting duplicate-rejection is testing nothing; verify real
+  constraint behavior (409 on conflict) with an integration test against actual Postgres instead.
 - **MediatR cast in ValidationBehavior**: `(TResponse)(Result)error` — double cast needed because
   compiler can't verify `Result → TResponse` at compile time, even with `where TResponse : Result`.
 - **DbContext is not thread-safe**: `Task.WhenAll` over multiple hot queries on one scoped

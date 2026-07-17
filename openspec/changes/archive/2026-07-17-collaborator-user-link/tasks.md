@@ -34,7 +34,7 @@ Chain strategy: stacked (`feat/collaborator-user-link-schema` → `-provisioning
 
 - [x] 1.1 `Domain/Entities/Collaborator.cs`: add `Guid? UserId`, `User? User` nav.
 - [x] 1.2 `Domain/Entities/User.cs`: add inverse `Collaborator?` nav.
-- [x] 1.3 `EmployeeConfiguration.cs`: `HasOne(User).WithOne` FK, `OnDelete(SetNull)`, partial-unique `UserId` index (Email unique index deferred to Phase 3/Migration B).
+- [x] 1.3 `EmployeeConfiguration.cs`: `HasOne(c=>c.User).WithOne(u=>u.Collaborator).HasForeignKey<Collaborator>(c=>c.UserId).OnDelete(SetNull)`; partial-unique `UserId` index (Email unique index deferred to Phase 3/Migration B).
 - [x] 1.4 `dotnet ef migrations add AddCollaboratorUserLink` — additive only, verify Up/Down.
 - [x] 1.5 Unit test (InMemory EF): partial-unique index declared correctly (metadata-level — InMemory provider does not enforce unique-index constraints at runtime, see apply-progress for details); nulls save without error.
 
@@ -58,7 +58,7 @@ Chain strategy: stacked (`feat/collaborator-user-link-schema` → `-provisioning
 
 ## Phase 4: Reports (PR 4)
 
-- [ ] 4.1 `GetSessionPeriodReport.cs`: `byCollaborator` left-join `Collaborator` on `UserId==CollaboratorId`; name = linked, else User fallback.
-- [ ] 4.2 `GetClinicReport.cs`/`GetWorkRouteReport.cs`/`GetSummaryReport.cs`: doc-comment only — roster counts include legacy rows by design, no logic change.
-- [ ] 4.3 Integration test: 2-linked+1-legacy seed — session breakdown name resolves; clinic report still counts/names legacy row.
-- [ ] 4.4 Integration test: summary vs session-period collaborator population both link-derived; delta documented.
+- [x] 4.1 `GetSessionPeriodReport.cs`: `byCollaborator` left-join `Collaborator` on `UserId==CollaboratorId`; name = linked, else User fallback.
+- [x] 4.2 `GetClinicReport.cs`/`GetWorkRouteReport.cs`/`GetSummaryReport.cs`: doc-comment only — roster counts include legacy rows by design, no logic change.
+- [x] 4.3 Integration test: 2-linked+1-legacy seed — session breakdown name resolves; clinic report still counts/names legacy row.
+- [x] 4.4 Integration test: summary vs session-period collaborator population both link-derived; delta documented.

@@ -37,6 +37,9 @@ public sealed class GetWorkRouteReportHandler(HouseCenterDbContext db)
         // separately-maintained list — see WorkRouteResponse.Stops.
         var stopsCount = await db.Patients
             .CountAsync(p => p.WorkRouteId == request.WorkRouteId, ct);
+        // Roster count: reads db.Collaborators directly by WorkRouteId, INCLUDING legacy
+        // rows with UserId == null — same intentional semantics as GetClinicReport's
+        // collaboratorsAssigned. Not a bug; see design.md Decision 5.
         var collaboratorsOnRoute = await db.Collaborators
             .CountAsync(c => c.WorkRouteId == request.WorkRouteId, ct);
         var sessionsLast30Days = await db.AttentionSessions
@@ -47,6 +50,8 @@ public sealed class GetWorkRouteReportHandler(HouseCenterDbContext db)
             .Distinct()
             .CountAsync(ct);
 
+        // Same roster source as collaboratorsOnRoute above — a legacy row's name still
+        // appears here (its own FirstName/LastName), independent of any User link.
         List<string>? collaboratorNames = null;
         if (isManagement)
             collaboratorNames = await db.Collaborators

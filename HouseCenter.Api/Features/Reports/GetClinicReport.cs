@@ -30,6 +30,12 @@ public sealed class GetClinicReportHandler(HouseCenterDbContext db)
 
         var patientsAttending = await db.Patients
             .CountAsync(p => p.ClinicId == request.ClinicId, ct);
+        // Roster count: reads db.Collaborators directly by ClinicId, INCLUDING legacy rows
+        // with UserId == null. This is intentional, not a bug — legacy rows are real staff
+        // assigned to this clinic who simply have no login, and must stay counted (design.md
+        // Decision 5). Do not collapse this with session-activity counts, which resolve
+        // through the Collaborator.UserId link and can only ever include linked staff — see
+        // GetSessionPeriodReport.cs's byCollaborator breakdown for that distinct metric.
         var collaboratorsAssigned = await db.Collaborators
             .CountAsync(c => c.ClinicId == request.ClinicId, ct);
         var sessionsThisMonth = await db.AttentionSessions
@@ -42,6 +48,9 @@ public sealed class GetClinicReportHandler(HouseCenterDbContext db)
         // management (spec R2 — anonymized response for the rest).
         var isManagement = request.Principal.IsInRole(RoleNames.Administrator)
                            || request.Principal.IsInRole(RoleNames.Owner);
+        // Same roster source as collaboratorsAssigned above — names come straight from the
+        // Collaborator row (its own FirstName/LastName), so a legacy row's name still
+        // appears here even though it has no linked User to resolve a name through.
         List<string>? collaboratorNames = null;
         if (isManagement)
             collaboratorNames = await db.Collaborators

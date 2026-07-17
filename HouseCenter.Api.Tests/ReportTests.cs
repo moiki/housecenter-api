@@ -182,6 +182,83 @@ public sealed class ReportTests(ApiFactory factory)
         report.SessionsByCollaborator.Should().BeNull();      // breakdown is management-only
     }
 
+    // ─── Collaborator-User link (Phase 4 — collaborator-user-link) ───────────
+
+    [Fact]
+    public async Task GetSessionPeriod_ByCollaborator_ResolvesRosterNameViaLink_ClinicReportStillCountsLegacy()
+    {
+        var owner = await OwnerClient();
+        var clinic = await CreateClinicAsync(owner);
+        var patient = await CreatePatientAsync(owner);
+
+        // Linked: a Member User whose roster name differs from the seeded User name
+        // (SeedUserAsync sets FirstName="Member"/LastName="Reporte") — this is what
+        // proves the breakdown resolves the ROSTER name via the link, not the raw User name.
+        var linkedUserId = await SeedUserAsync(RoleNames.Member);
+        await CreateLinkedCollaboratorAsync(owner, clinic.Id, linkedUserId, "Carlos", "López");
+        await CreateSessionAsync(owner, patient.Id, linkedUserId, clinicId: clinic.Id);
+
+        // Legacy: roster-only row, no User, so it can never generate a session — but it
+        // must still count/name in the clinic roster (design.md Decision 5).
+        await CreateCollaboratorAsync(owner, clinic.Id, "Pedro", "Castillo");
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var sessionResponse = await owner.GetAsync(
+            $"/reports/sessions?from={today:yyyy-MM-dd}&to={today:yyyy-MM-dd}");
+        sessionResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var sessionReport = await sessionResponse.Content.ReadFromJsonAsync<SessionPeriodReportResponse>();
+
+        sessionReport!.SessionsByCollaborator.Should().NotBeNull()
+            .And.ContainKey("Carlos López")
+            .WhoseValue.Should().BeGreaterThanOrEqualTo(1);
+        sessionReport.SessionsByCollaborator.Should().NotContainKey("Pedro Castillo");
+
+        var clinicResponse = await owner.GetAsync($"/reports/clinics/{clinic.Id}");
+        clinicResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var clinicReport = await clinicResponse.Content.ReadFromJsonAsync<ClinicReportResponse>();
+
+        clinicReport!.CollaboratorsAssigned.Should().Be(2); // roster count includes legacy row
+        clinicReport.CollaboratorNames.Should().NotBeNull()
+            .And.Contain("Carlos López")
+            .And.Contain("Pedro Castillo"); // legacy stays visible/named in the roster
+    }
+
+    [Fact]
+    public async Task Collaborators_RosterCount_IncludesLegacy_SessionActivityPopulation_ExcludesLegacy()
+    {
+        var owner = await OwnerClient();
+        var clinic = await CreateClinicAsync(owner);
+        var patient = await CreatePatientAsync(owner);
+
+        var beforeResponse = await owner.GetAsync("/reports/summary");
+        var summaryBefore = await beforeResponse.Content.ReadFromJsonAsync<SummaryReportResponse>();
+
+        var linkedUserId = await SeedUserAsync(RoleNames.Member);
+        await CreateLinkedCollaboratorAsync(owner, clinic.Id, linkedUserId, "Ana", "Vinculada");
+        await CreateCollaboratorAsync(owner, clinic.Id, "Luis", "Legado"); // legacy, no UserId
+        await CreateSessionAsync(owner, patient.Id, linkedUserId, clinicId: clinic.Id);
+
+        var afterResponse = await owner.GetAsync("/reports/summary");
+        var summaryAfter = await afterResponse.Content.ReadFromJsonAsync<SummaryReportResponse>();
+
+        // Roster population (Summary.Collaborators) is link-derived but counts BOTH linked
+        // and legacy rows — legacy rows are real staff, only login-required paths exclude
+        // them (design.md Decision 5). Delta must be exactly 2 (Ana + Luis).
+        (summaryAfter!.Collaborators - summaryBefore!.Collaborators).Should().Be(2);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var sessionResponse = await owner.GetAsync(
+            $"/reports/sessions?from={today:yyyy-MM-dd}&to={today:yyyy-MM-dd}");
+        var sessionReport = await sessionResponse.Content.ReadFromJsonAsync<SessionPeriodReportResponse>();
+
+        // Session-activity population resolves through the SAME link, but only includes
+        // collaborators who actually generated a session — a legacy row has no User, so it
+        // can never appear here. Documented delta: roster count >= session-activity population.
+        sessionReport!.SessionsByCollaborator.Should().NotBeNull()
+            .And.ContainKey("Ana Vinculada");
+        sessionReport.SessionsByCollaborator.Should().NotContainKey("Luis Legado");
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private async Task<Guid> SeedUserAsync(string roleName, string? email = null)
@@ -260,6 +337,18 @@ public sealed class ReportTests(ApiFactory factory)
             firstName, lastName, $"colab-{Guid.NewGuid():N}@test.local", "8888-8888",
             "Dirección colaborador", "Nicaragua", null, "Managua", null,
             clinicId, null, ["Fisioterapeuta"]));
+        response.EnsureSuccessStatusCode();
+    }
+
+    // Explicit UserId branch of CollaboratorService.ResolveUserIdAsync (design.md Decision 1a) —
+    // links the Collaborator to an existing unlinked Member User at creation time.
+    private static async Task CreateLinkedCollaboratorAsync(
+        HttpClient client, Guid clinicId, Guid userId, string firstName, string lastName)
+    {
+        var response = await client.PostAsJsonAsync("/collaborators", new CreateCollaboratorRequest(
+            firstName, lastName, $"colab-{Guid.NewGuid():N}@test.local", "8888-8888",
+            "Dirección colaborador", "Nicaragua", null, "Managua", null,
+            clinicId, null, ["Fisioterapeuta"], userId));
         response.EnsureSuccessStatusCode();
     }
 
