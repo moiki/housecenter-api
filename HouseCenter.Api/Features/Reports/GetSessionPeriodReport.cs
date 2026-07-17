@@ -68,12 +68,29 @@ public sealed class GetSessionPeriodReportHandler(HouseCenterDbContext db)
             .OrderBy(b => b.WeekStart).ThenBy(b => b.AttentionType).ThenBy(b => b.Status)
             .ToList();
 
+        // AttentionSession.CollaboratorId is actually an FK to Users (the "Collaborator" nav
+        // property is a User, despite the name) — left-join the roster Collaborator via the
+        // User link (Collaborator.UserId) so the label matches the roster name used
+        // elsewhere (R1-R3), falling back to the User's own name when unlinked. Grouping by
+        // the resolved name (not by CollaboratorId) merges any accidental same-name
+        // collisions instead of throwing on a duplicate dictionary key. See
+        // openspec/changes/collaborator-user-link/design.md Decision 4.
         Dictionary<string, int>? byCollaborator = null;
         if (isManagement)
-            byCollaborator = await sessions
-                .GroupBy(s => s.Collaborator.FirstName + " " + s.Collaborator.LastName)
+        {
+            var names =
+                from s in sessions
+                join c in db.Collaborators on s.CollaboratorId equals c.UserId into gj
+                from c in gj.DefaultIfEmpty()
+                select c != null
+                    ? c.FirstName + " " + c.LastName
+                    : s.Collaborator.FirstName + " " + s.Collaborator.LastName;
+
+            byCollaborator = await names
+                .GroupBy(name => name)
                 .Select(g => new { Name = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.Name, x => x.Count, ct);
+        }
 
         return new SessionPeriodReportResponse(request.From, request.To, weeks, byCollaborator);
     }

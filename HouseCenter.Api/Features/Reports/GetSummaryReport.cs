@@ -25,6 +25,12 @@ public sealed class GetSummaryReportHandler(HouseCenterDbContext db)
         var activePatients = await db.Patients.CountAsync(ct);
         var sessionsThisMonth = await db.AttentionSessions
             .CountAsync(s => s.SessionDate >= monthStart, ct);
+        // Org-wide roster count: reads db.Collaborators directly, INCLUDING legacy rows
+        // with UserId == null (real staff who never log in). This is intentional (design.md
+        // Decision 5), not a discrepancy with GetSessionPeriodReport's byCollaborator
+        // breakdown — that breakdown resolves through the Collaborator.UserId link and can
+        // only ever include linked staff who generated sessions, so it is a distinct,
+        // smaller population by construction: roster count >= collaborators-with-sessions.
         var collaborators = await db.Collaborators.CountAsync(ct);
         var clinics = await db.Clinics.CountAsync(ct);
         var workRoutes = await db.WorkRoutes.CountAsync(ct);

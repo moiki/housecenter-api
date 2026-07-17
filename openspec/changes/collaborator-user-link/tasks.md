@@ -58,7 +58,7 @@ Chain strategy: stacked (`feat/collaborator-user-link-schema` → `-provisioning
 
 ## Phase 4: Reports (PR 4)
 
-- [ ] 4.1 `GetSessionPeriodReport.cs`: `byCollaborator` left-join `Collaborator` on `UserId==CollaboratorId`; name = linked, else User fallback.
-- [ ] 4.2 `GetClinicReport.cs`/`GetWorkRouteReport.cs`/`GetSummaryReport.cs`: doc-comment only — roster counts include legacy rows by design, no logic change.
-- [ ] 4.3 Integration test: 2-linked+1-legacy seed — session breakdown name resolves; clinic report still counts/names legacy row.
-- [ ] 4.4 Integration test: summary vs session-period collaborator population both link-derived; delta documented.
+- [x] 4.1 `GetSessionPeriodReport.cs`: `byCollaborator` left-join `Collaborator` on `UserId==CollaboratorId`; name = linked, else User fallback.
+- [x] 4.2 `GetClinicReport.cs`/`GetWorkRouteReport.cs`/`GetSummaryReport.cs`: doc-comment only — roster counts include legacy rows by design, no logic change.
+- [x] 4.3 Integration test: 2-linked+1-legacy seed — session breakdown name resolves; clinic report still counts/names legacy row.
+- [x] 4.4 Integration test: summary vs session-period collaborator population both link-derived; delta documented.
