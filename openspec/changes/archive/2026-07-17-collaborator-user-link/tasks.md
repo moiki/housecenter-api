@@ -34,7 +34,7 @@ Chain strategy: stacked (`feat/collaborator-user-link-schema` → `-provisioning
 
 - [x] 1.1 `Domain/Entities/Collaborator.cs`: add `Guid? UserId`, `User? User` nav.
 - [x] 1.2 `Domain/Entities/User.cs`: add inverse `Collaborator?` nav.
-- [x] 1.3 `EmployeeConfiguration.cs`: `HasOne(User).WithOne` FK, `OnDelete(SetNull)`, partial-unique `UserId` index (Email unique index deferred to Phase 3/Migration B).
+- [x] 1.3 `EmployeeConfiguration.cs`: `HasOne(c=>c.User).WithOne(u=>u.Collaborator).HasForeignKey<Collaborator>(c=>c.UserId).OnDelete(SetNull)`; partial-unique `UserId` index (Email unique index deferred to Phase 3/Migration B).
 - [x] 1.4 `dotnet ef migrations add AddCollaboratorUserLink` — additive only, verify Up/Down.
 - [x] 1.5 Unit test (InMemory EF): partial-unique index declared correctly (metadata-level — InMemory provider does not enforce unique-index constraints at runtime, see apply-progress for details); nulls save without error.
 
