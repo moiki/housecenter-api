@@ -29,4 +29,9 @@ public class User : BaseEntity
     public ICollection<Role> Roles { get; set; } = [];
     public ICollection<PatientComment> Comments { get; set; } = [];
     public ICollection<UserSession> Sessions { get; set; } = [];
+
+    // Inverse of the 1:1 Collaborator link (see Collaborator.UserId). Null until an admin
+    // links this User's field profile via POST /collaborators, or signup auto-links an
+    // existing unlinked roster row by email match.
+    public Collaborator? Collaborator { get; set; }
 }
