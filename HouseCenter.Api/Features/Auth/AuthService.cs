@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HouseCenter.Api.Common.Email;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
+using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
 using HouseCenter.Api.Options;
 using Microsoft.EntityFrameworkCore;
@@ -110,6 +111,38 @@ public sealed class AuthService(
 
         db.Users.Add(user);
         invitation.Status = InvitationStatus.Accepted;
+
+        // Member signup links an existing unlinked roster row by email match — it never
+        // fabricates one. Collaborator.ClinicId is required and signup collects no clinic
+        // context, so any row it created would be invalid or need guessed data. See
+        // openspec/changes/collaborator-user-link/spec.md "Member signup links an existing
+        // Collaborator, never fabricates one" and design.md Decision 1.
+        if (role.Name == RoleNames.Member)
+        {
+            var normalizedEmail = user.Email.ToLowerInvariant();
+
+            // FirstOrDefaultAsync, never SingleOrDefaultAsync — the Email unique index is
+            // deferred to Phase 3 (post-reconciliation), so pre-existing legacy duplicates
+            // must degrade to "first match," not throw.
+            var existingCollaborator = await db.Collaborators
+                .Where(c => c.UserId == null && c.Email.ToLower() == normalizedEmail)
+                .FirstOrDefaultAsync(ct);
+
+            if (existingCollaborator is not null)
+            {
+                existingCollaborator.UserId = user.Id;
+                logger.LogInformation(
+                    "Signup linked existing Collaborator {CollaboratorId} to new Member {Email}",
+                    existingCollaborator.Id, user.Email);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Member signup for {Email} has no matching unlinked Collaborator — an admin must link it later via POST /collaborators",
+                    user.Email);
+            }
+        }
+
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation("User {Email} signed up via invitation {InvitationId}", user.Email, invitationId);

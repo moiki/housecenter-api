@@ -3,6 +3,7 @@ using HouseCenter.Api.Common.Pagination;
 using HouseCenter.Api.Common.Persistence;
 using HouseCenter.Api.Common.Results;
 using HouseCenter.Api.Data;
+using HouseCenter.Api.Domain.Constants;
 using HouseCenter.Api.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -34,7 +35,7 @@ public sealed class CollaboratorService(
                 c.Country, c.State, c.City, c.ProfilePicture,
                 c.ClinicId, c.Clinic.Name, c.WorkRouteId,
                 c.Positions.Select(p => new PositionDto(p.Id, p.Name)).ToList(),
-                c.IsActive));
+                c.IsActive, c.UserId, c.UserId != null));
 
         return await query.ToPagedResultAsync(paging, ct);
     }
@@ -49,7 +50,7 @@ public sealed class CollaboratorService(
                 c.Country, c.State, c.City, c.ProfilePicture,
                 c.ClinicId, c.Clinic.Name, c.WorkRouteId,
                 c.Positions.Select(p => new PositionDto(p.Id, p.Name)).ToList(),
-                c.IsActive))
+                c.IsActive, c.UserId, c.UserId != null))
             .SingleOrDefaultAsync(ct);
 
         return collaborator is not null ? collaborator : NotFound;
@@ -57,22 +58,21 @@ public sealed class CollaboratorService(
 
     public async Task<Result<CollaboratorResponse>> GetMeAsync(ClaimsPrincipal principal, CancellationToken ct)
     {
-        var userEmail = principal.FindFirstValue(ClaimTypes.Email)!;
+        var callerId = Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        // Case-insensitive match — EF Core translates .ToLower() to SQL LOWER(); Postgres
-        // string == is case-sensitive by default. FirstOrDefaultAsync, never
-        // SingleOrDefaultAsync — Collaborator.Email has no unique index/constraint, so a
-        // duplicate-email row must degrade to "first match," not 500.
+        // The partial-unique index on Collaborator.UserId guarantees at most one row per
+        // caller, so SingleOrDefaultAsync is safe here (unlike the old email-based lookup,
+        // which had no such constraint). See design.md Decision 4.
         var collaborator = await db.Collaborators
             .AsNoTracking()
-            .Where(c => c.Email.ToLower() == userEmail.ToLower())
+            .Where(c => c.UserId == callerId)
             .Select(c => new CollaboratorResponse(
                 c.Id, c.FirstName, c.LastName, c.Email, c.PhoneNumber, c.Address,
                 c.Country, c.State, c.City, c.ProfilePicture,
                 c.ClinicId, c.Clinic.Name, c.WorkRouteId,
                 c.Positions.Select(p => new PositionDto(p.Id, p.Name)).ToList(),
-                c.IsActive))
-            .FirstOrDefaultAsync(ct);
+                c.IsActive, c.UserId, c.UserId != null))
+            .SingleOrDefaultAsync(ct);
 
         return collaborator is not null ? collaborator : NotFound;
     }
@@ -82,11 +82,21 @@ public sealed class CollaboratorService(
         var validation = await ValidateRelationsAsync(request.ClinicId, request.WorkRouteId, ct);
         if (validation.IsFailure) return Result.Failure<CollaboratorResponse>(validation.Error);
 
+        // Emails are normalized to lowercase on every write so a plain unique index (Phase 3,
+        // Migration B) gives case-insensitive uniqueness without citext. See design.md Decision 3.
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+        if (await db.Collaborators.AnyAsync(c => c.Email.ToLower() == normalizedEmail, ct))
+            return Error.Conflict("collaborators.email_taken", "A collaborator with this email already exists");
+
+        var userIdResult = await ResolveUserIdAsync(request.UserId, normalizedEmail, ct);
+        if (userIdResult.IsFailure) return Result.Failure<CollaboratorResponse>(userIdResult.Error);
+
         var collaborator = new Collaborator
         {
             FirstName = request.FirstName,
             LastName = request.LastName,
-            Email = request.Email,
+            Email = normalizedEmail,
             PhoneNumber = request.PhoneNumber,
             Address = request.Address,
             Country = request.Country,
@@ -95,6 +105,7 @@ public sealed class CollaboratorService(
             ProfilePicture = request.ProfilePicture,
             ClinicId = request.ClinicId,
             WorkRouteId = request.WorkRouteId,
+            UserId = userIdResult.Value,
             Positions = request.Positions
                 .Select(name => new Position { Name = name })
                 .ToList()
@@ -117,9 +128,14 @@ public sealed class CollaboratorService(
         var validation = await ValidateRelationsAsync(request.ClinicId, request.WorkRouteId, ct);
         if (validation.IsFailure) return Result.Failure<CollaboratorResponse>(validation.Error);
 
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+
+        if (await db.Collaborators.AnyAsync(c => c.Id != id && c.Email.ToLower() == normalizedEmail, ct))
+            return Error.Conflict("collaborators.email_taken", "A collaborator with this email already exists");
+
         collaborator.FirstName = request.FirstName;
         collaborator.LastName = request.LastName;
-        collaborator.Email = request.Email;
+        collaborator.Email = normalizedEmail;
         collaborator.PhoneNumber = request.PhoneNumber;
         collaborator.Address = request.Address;
         collaborator.Country = request.Country;
@@ -138,6 +154,37 @@ public sealed class CollaboratorService(
         await collaborators.SaveChangesAsync(ct);
 
         return await GetByIdAsync(collaborator.Id, ct);
+    }
+
+    // Resolution order (design.md Decision 1): (a) explicit UserId -> validate the User
+    // exists, has Role=Member, and is not already linked; (b) no UserId -> case-insensitive
+    // email-match to an unlinked Role=Member User; (c) no match -> null (pending/legacy row).
+    private async Task<Result<Guid?>> ResolveUserIdAsync(Guid? explicitUserId, string normalizedEmail, CancellationToken ct)
+    {
+        if (explicitUserId is not null)
+        {
+            var user = await db.Users
+                .Include(u => u.Roles)
+                .SingleOrDefaultAsync(u => u.Id == explicitUserId, ct);
+
+            if (user is null)
+                return Error.NotFound("users.not_found", "User not found");
+
+            if (!user.Roles.Any(r => r.Name == RoleNames.Member))
+                return Error.Validation("collaborators.user_not_member", "User must have the Member role to be linked to a Collaborator");
+
+            if (await db.Collaborators.AnyAsync(c => c.UserId == user.Id, ct))
+                return Error.Conflict("collaborators.user_already_linked", "This user is already linked to a collaborator");
+
+            return (Guid?)user.Id;
+        }
+
+        return await db.Users
+            .Where(u => u.Roles.Any(r => r.Name == RoleNames.Member))
+            .Where(u => u.Email.ToLower() == normalizedEmail)
+            .Where(u => !db.Collaborators.Any(c => c.UserId == u.Id))
+            .Select(u => (Guid?)u.Id)
+            .FirstOrDefaultAsync(ct);
     }
 
     public async Task<Result> DeactivateAsync(Guid id, CancellationToken ct)
