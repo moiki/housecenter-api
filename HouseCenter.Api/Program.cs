@@ -104,6 +104,9 @@ try
     else
         builder.Services.AddSingleton<IPushSender, LoggingPushSender>();
 
+    // Backs RateLimitBehavior's per-user, per-request-type counters.
+    builder.Services.AddMemoryCache();
+
     // Database — resolved LAZILY via IOptions at pool-creation time (same reasoning as the
     // JwtBearer setup below). Reading builder.Configuration into a local var here would bake
     // in a snapshot taken before WebApplicationFactory's test-host config overrides are
@@ -169,6 +172,7 @@ try
         cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
         cfg.AddOpenBehavior(typeof(PerformanceBehavior<,>));
         cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+        cfg.AddOpenBehavior(typeof(RateLimitBehavior<,>));
         cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
     });
 
