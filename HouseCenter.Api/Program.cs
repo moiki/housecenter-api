@@ -8,6 +8,7 @@ using HouseCenter.Api.Common.Middleware;
 using HouseCenter.Api.Common.Persistence;
 using HouseCenter.Api.Common.Push;
 using HouseCenter.Api.Common.Storage;
+using HouseCenter.Api.Common.Translation;
 using HouseCenter.Api.Features.Attachments;
 using HouseCenter.Api.Data;
 using HouseCenter.Api.Domain.Constants;
@@ -23,6 +24,7 @@ using HouseCenter.Api.Features.Patients.Sessions;
 using HouseCenter.Api.Features.Reports;
 using HouseCenter.Api.Features.Roles;
 using HouseCenter.Api.Features.Seeding;
+using HouseCenter.Api.Features.Translation;
 using HouseCenter.Api.Features.Users;
 using HouseCenter.Api.Features.WorkRoutes;
 using HouseCenter.Api.Options;
@@ -69,6 +71,8 @@ try
         builder.Configuration.GetSection(SessionReminderOptions.SectionName));
     builder.Services.Configure<PushOptions>(
         builder.Configuration.GetSection(PushOptions.SectionName));
+    builder.Services.Configure<TranslationOptions>(
+        builder.Configuration.GetSection(TranslationOptions.SectionName));
     builder.Services.Configure<FileStorageOptions>(
         builder.Configuration.GetSection(FileStorageOptions.SectionName));
     builder.Services.Configure<CorsOptions>(
@@ -106,6 +110,15 @@ try
 
     // Backs RateLimitBehavior's per-user, per-request-type counters.
     builder.Services.AddMemoryCache();
+
+    // Translation client: real Google Cloud Translation API only when credentials are present,
+    // else a logging no-op (echoes the input back) so the pipeline runs without a GCP project.
+    var translationConfigured = !string.IsNullOrWhiteSpace(
+        builder.Configuration.GetSection(TranslationOptions.SectionName)[nameof(TranslationOptions.ProjectId)]);
+    if (translationConfigured)
+        builder.Services.AddSingleton<ITranslationClient, GoogleTranslationClient>();
+    else
+        builder.Services.AddSingleton<ITranslationClient, LoggingTranslationClient>();
 
     // Database — resolved LAZILY via IOptions at pool-creation time (same reasoning as the
     // JwtBearer setup below). Reading builder.Configuration into a local var here would bake
@@ -299,6 +312,7 @@ try
     app.MapNotificationEndpoints();
     app.MapAttachmentEndpoints();
     app.MapHelpEndpoints();
+    app.MapTranslationEndpoints();
 
     // Test data on demand — the route only exists in Development/Staging (404 in
     // Production) and never runs at startup; DatabaseSeeder keeps seeding roles + owner.

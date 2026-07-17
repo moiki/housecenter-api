@@ -126,6 +126,7 @@ A patient can have both types. Treatments are typed accordingly.
 | MedicalConsultations | **CQRS** | New, clean slate |
 | Reports | **CQRS** | Read-only query handlers, role-based projection |
 | HelpTopics | **CQRS** | New, clean slate |
+| Translation | **CQRS** | Single command, stateless proxy to Google Cloud Translation |
 
 ---
 
@@ -204,6 +205,8 @@ App:FrontendUrl
 Seed:OwnerEmail / Seed:OwnerPassword
 Seed:TestUserPassword  # optional — password for POST /seed test users (default Demo@123!)
 Push:CredentialsJson   # Firebase service-account JSON; blank = push logs instead of sending (FCM off)
+Translation:ProjectId       # GCP project with Cloud Translation API enabled
+Translation:CredentialsJson # GCP service-account JSON; blank ProjectId = logging no-op client instead of calling Google
 ```
 
 **Test data:** `POST /seed` (Development/Staging only, AdministratorOrAbove) inserts an
