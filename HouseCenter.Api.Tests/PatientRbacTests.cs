@@ -67,6 +67,38 @@ public sealed class PatientRbacTests(ApiFactory factory)
         }
     }
 
+    // ─── Write tier: MemberOrAbove (Phase 2) ───────────────────────────────────
+
+    [Fact]
+    public async Task WriteRoutes_AsSponsorOrDoctor_Returns403()
+    {
+        var owner = await OwnerClient();
+        var graph = await RunWriteFlowAsync(owner);
+        var collaboratorUserId = await SeedUserAsync(RoleNames.Member);
+        var (sponsor, _) = await LoginUserWithRoleAsync(RoleNames.Sponsor);
+        var (doctor, _) = await LoginUserWithRoleAsync(RoleNames.Doctor);
+
+        foreach (var client in new[] { sponsor, doctor })
+        foreach (var (method, path, body) in WriteRoutes(graph, collaboratorUserId))
+        {
+            var response = await SendAsync(client, method, path, body);
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"{method} {path} must block writes for this role");
+        }
+    }
+
+    [Fact]
+    public async Task WriteRoutes_AsMemberAdministratorOrOwner_Succeed()
+    {
+        var owner = await OwnerClient();
+        var (member, _) = await LoginUserWithRoleAsync(RoleNames.Member);
+        var (admin, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+
+        // RunWriteFlowAsync itself asserts every one of the 12 write-tier routes succeeds —
+        // running it once per role IS the assertion for this test.
+        foreach (var client in new[] { member, admin, owner })
+            await RunWriteFlowAsync(client);
+    }
+
     // ─── Route inventories ──────────────────────────────────────────────────────
 
     private static IEnumerable<(HttpMethod Method, string Path)> ReadRoutes(PatientGraph g) =>
@@ -79,7 +111,43 @@ public sealed class PatientRbacTests(ApiFactory factory)
         (HttpMethod.Get, $"/treatments/{g.TreatmentId}/comments")
     ];
 
+    /// <summary>The 12 create/update/collaborator-assign routes — blocked-role test reuses one
+    /// pre-seeded graph since every call here is expected to be rejected before it touches data.</summary>
+    private static IEnumerable<(HttpMethod Method, string Path, object? Body)> WriteRoutes(
+        PatientGraph g, Guid collaboratorUserId) =>
+    [
+        (HttpMethod.Post, "/patients", ValidPatientRequest("WriteBlocked")),
+        (HttpMethod.Put, $"/patients/{g.PatientId}", ValidUpdatePatientRequest("WriteBlocked")),
+        (HttpMethod.Post, $"/patients/{g.PatientId}/collaborators/{collaboratorUserId}", null),
+        (HttpMethod.Post, $"/patients/{g.PatientId}/treatments",
+            new CreateTreatmentRequest("Bloqueado", "Descripción", null, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1))),
+        (HttpMethod.Put, $"/patients/{g.PatientId}/treatments/{g.TreatmentId}",
+            new UpdateTreatmentRequest("Bloqueado", "Descripción", null, DateTime.UtcNow, DateTime.UtcNow.AddMonths(1))),
+        (HttpMethod.Patch, $"/patients/{g.PatientId}/treatments/{g.TreatmentId}/status",
+            new UpdateTreatmentStatusRequest(TreatmentStatus.Paused)),
+        (HttpMethod.Post, $"/treatments/{g.TreatmentId}/details",
+            new CreateTreatmentDetailRequest("Bloqueado", "Descripción", null, DateTime.UtcNow)),
+        (HttpMethod.Put, $"/treatments/{g.TreatmentId}/details/{g.DetailId}",
+            new UpdateTreatmentDetailRequest("Bloqueado", "Descripción", null, DateTime.UtcNow)),
+        (HttpMethod.Post, $"/treatments/{g.TreatmentId}/comments",
+            new CreateTreatmentCommentRequest("Bloqueado", CommentType.Medical)),
+        (HttpMethod.Put, $"/treatments/{g.TreatmentId}/comments/{g.TreatmentCommentId}",
+            new UpdateTreatmentCommentRequest("Bloqueado", CommentType.Medical, CommentStatus.Accepted)),
+        (HttpMethod.Post, $"/patients/{g.PatientId}/comments",
+            new CreatePatientCommentRequest("Bloqueado", CommentType.Simple)),
+        (HttpMethod.Put, $"/patients/{g.PatientId}/comments/{g.PatientCommentId}",
+            new UpdatePatientCommentRequest("Bloqueado", CommentType.Simple, CommentStatus.Accepted))
+    ];
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    private static async Task<HttpResponseMessage> SendAsync(
+        HttpClient client, HttpMethod method, string path, object? body)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (body is not null) request.Content = JsonContent.Create(body);
+        return await client.SendAsync(request);
+    }
 
     /// <summary>Runs the full create+update sequence across all 5 patient-domain resource types
     /// as <paramref name="client"/>, asserting every step succeeds (201/200/204) — this both seeds

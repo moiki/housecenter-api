@@ -44,11 +44,13 @@ public static class PatientEndpoints
                     created => Results.Created($"/patients/{created.Id}", created),
                     error => error.ToProblem());
             })
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<CreatePatientRequest>()
             .WithName("CreatePatient");
 
         group.MapPut("/{id:guid}", async (Guid id, UpdatePatientRequest request, IPatientService service, CancellationToken ct) =>
                 (await service.UpdateAsync(id, request, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<UpdatePatientRequest>()
             .WithName("UpdatePatient");
 
@@ -60,6 +62,7 @@ public static class PatientEndpoints
         group.MapPost("/{id:guid}/collaborators/{userId:guid}", async (
                 Guid id, Guid userId, IPatientService service, CancellationToken ct) =>
                 (await service.AddCollaboratorAsync(id, userId, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithName("AddPatientCollaborator");
 
         // attention-sessions R7 — doctor assignment, Owner only
@@ -93,17 +96,20 @@ public static class PatientEndpoints
                     created => Results.Created($"/patients/{patientId}/treatments/{created.Id}", created),
                     error => error.ToProblem());
             })
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<CreateTreatmentRequest>()
             .WithName("CreateTreatment");
 
         group.MapPut("/{treatmentId:guid}", async (Guid patientId, Guid treatmentId, UpdateTreatmentRequest request, IPatientService service, CancellationToken ct) =>
                 (await service.UpdateTreatmentAsync(treatmentId, request, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<UpdateTreatmentRequest>()
             .WithName("UpdateTreatment");
 
         // 4.5 Status patch — separate endpoint, separate DTO, clear intent
         group.MapPatch("/{treatmentId:guid}/status", async (Guid patientId, Guid treatmentId, UpdateTreatmentStatusRequest request, IPatientService service, CancellationToken ct) =>
                 (await service.UpdateTreatmentStatusAsync(treatmentId, request, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithName("UpdateTreatmentStatus");
 
         group.MapDelete("/{treatmentId:guid}", async (Guid patientId, Guid treatmentId, IPatientService service, CancellationToken ct) =>
@@ -128,11 +134,13 @@ public static class PatientEndpoints
                     created => Results.Created($"/treatments/{treatmentId}/details/{created.Id}", created),
                     error => error.ToProblem());
             })
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<CreateTreatmentDetailRequest>()
             .WithName("CreateTreatmentDetail");
 
         group.MapPut("/{detailId:guid}", async (Guid treatmentId, Guid detailId, UpdateTreatmentDetailRequest request, IPatientService service, CancellationToken ct) =>
                 (await service.UpdateTreatmentDetailAsync(detailId, request, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<UpdateTreatmentDetailRequest>()
             .WithName("UpdateTreatmentDetail");
 
@@ -159,11 +167,13 @@ public static class PatientEndpoints
                     created => Results.Created($"/treatments/{treatmentId}/comments/{created.Id}", created),
                     error => error.ToProblem());
             })
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<CreateTreatmentCommentRequest>()
             .WithName("CreateTreatmentComment");
 
         group.MapPut("/{commentId:guid}", async (Guid treatmentId, Guid commentId, UpdateTreatmentCommentRequest request, IPatientService service, CancellationToken ct) =>
                 (await service.UpdateTreatmentCommentAsync(commentId, request, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<UpdateTreatmentCommentRequest>()
             .WithName("UpdateTreatmentComment");
 
@@ -186,11 +196,13 @@ public static class PatientEndpoints
                     created => Results.Created($"/patients/{patientId}/comments/{created.Id}", created),
                     error => error.ToProblem());
             })
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<CreatePatientCommentRequest>()
             .WithName("CreatePatientComment");
 
         group.MapPut("/{commentId:guid}", async (Guid patientId, Guid commentId, UpdatePatientCommentRequest request, IPatientService service, CancellationToken ct) =>
                 (await service.UpdatePatientCommentAsync(commentId, request, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.MemberOrAbove)
             .WithValidation<UpdatePatientCommentRequest>()
             .WithName("UpdatePatientComment");
 

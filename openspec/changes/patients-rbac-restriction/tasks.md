@@ -49,13 +49,15 @@ assuming small.
 
 ## Phase 2: Write tier — MemberOrAbove (PR 2)
 
-- [ ] 2.1 RED: add failing tests — Sponsor & Doctor → 403 on all 12 create/update/collaborator-assign
+- [x] 2.1 RED: add failing tests — Sponsor & Doctor → 403 on all 12 create/update/collaborator-assign
   routes (spec: "Sponsor and Doctor blocked from writing"); Member/Admin/Owner → 200/201 on same
-  (spec: "Member retains field data-entry access").
-- [ ] 2.2 GREEN: `PatientEndpoints.cs` — add `.RequireAuthorization(PolicyNames.MemberOrAbove)` to the
+  (spec: "Member retains field data-entry access"). Confirmed RED: Doctor's `POST /patients`
+  returned 201 (Doctor satisfies `StaffOnly` but not yet blocked from writes).
+- [x] 2.2 GREEN: `PatientEndpoints.cs` — add `.RequireAuthorization(PolicyNames.MemberOrAbove)` to the
   12 routes (CreatePatient, UpdatePatient, AddPatientCollaborator, CreateTreatment, UpdateTreatment,
   UpdateTreatmentStatus, CreateTreatmentDetail, UpdateTreatmentDetail, CreateTreatmentComment,
-  UpdateTreatmentComment, CreatePatientComment, UpdatePatientComment). `dotnet test` green.
+  UpdateTreatmentComment, CreatePatientComment, UpdatePatientComment). `dotnet test` green (37/37:
+  RBAC + PatientFlowTests + ConsultationFlowTests + AttentionSessionTests).
 
 ## Phase 3: Deactivate tier + OwnerOnly regression (PR 3)
 
