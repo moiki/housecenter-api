@@ -56,6 +56,7 @@ public static class PatientEndpoints
 
         group.MapDelete("/{id:guid}", async (Guid id, IPatientService service, CancellationToken ct) =>
                 (await service.DeactivateAsync(id, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
             .WithName("DeactivatePatient");
 
         // 4.2 Add collaborator to patient
@@ -114,6 +115,7 @@ public static class PatientEndpoints
 
         group.MapDelete("/{treatmentId:guid}", async (Guid patientId, Guid treatmentId, IPatientService service, CancellationToken ct) =>
                 (await service.DeactivateTreatmentAsync(treatmentId, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
             .WithName("DeactivateTreatment");
     }
 
@@ -146,6 +148,7 @@ public static class PatientEndpoints
 
         group.MapDelete("/{detailId:guid}", async (Guid treatmentId, Guid detailId, IPatientService service, CancellationToken ct) =>
                 (await service.DeactivateTreatmentDetailAsync(detailId, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
             .WithName("DeactivateTreatmentDetail");
     }
 
@@ -179,6 +182,7 @@ public static class PatientEndpoints
 
         group.MapDelete("/{commentId:guid}", async (Guid treatmentId, Guid commentId, IPatientService service, CancellationToken ct) =>
                 (await service.DeactivateTreatmentCommentAsync(commentId, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
             .WithName("DeactivateTreatmentComment");
     }
 
@@ -208,6 +212,7 @@ public static class PatientEndpoints
 
         group.MapDelete("/{commentId:guid}", async (Guid patientId, Guid commentId, IPatientService service, CancellationToken ct) =>
                 (await service.DeactivatePatientCommentAsync(commentId, ct)).ToHttpResult())
+            .RequireAuthorization(PolicyNames.AdministratorOrAbove)
             .WithName("DeactivatePatientComment");
     }
 }

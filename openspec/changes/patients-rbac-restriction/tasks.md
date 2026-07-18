@@ -61,12 +61,22 @@ assuming small.
 
 ## Phase 3: Deactivate tier + OwnerOnly regression (PR 3)
 
-- [ ] 3.1 RED: add failing tests — Member → 403 on all 5 deactivate routes (spec: "Member blocked
-  from deactivating"); Admin/Owner → 200 (spec: "retain deactivate access").
-- [ ] 3.2 RED: add regression tests — Owner → 200/201, Administrator → 403 on
-  `POST`/`DELETE /patients/{id}/doctors/{userId}` (spec Decision 4 non-regression; expect these to
-  pass with zero code change once written).
-- [ ] 3.3 GREEN: `PatientEndpoints.cs` — add `.RequireAuthorization(PolicyNames.AdministratorOrAbove)`
-  to the 5 deactivate routes. `dotnet test` green; confirm 3.2 passed untouched (proves Decision 4).
-- [ ] 3.4 Full regression: run entire `dotnet test` suite — `PatientFlowTests`, `ConsultationFlowTests`,
-  `AttentionSessionTests`, `ReportTests` stay green (Owner/Doctor satisfy every tier).
+- [x] 3.1 RED: add failing tests — Member → 403 on all 5 deactivate routes (spec: "Member blocked
+  from deactivating"); Admin/Owner → 200 (spec: "retain deactivate access"). Confirmed RED:
+  `DELETE /patients/{id}` as Member returned 204 (not yet blocked).
+- [x] 3.2 RED: add regression tests — Owner → 200/201, Administrator → 403 on
+  `POST`/`DELETE /patients/{id}/doctors/{userId}` (spec Decision 4 non-regression; passed with zero
+  code change, as expected — `OwnerOnly` was never touched).
+- [x] 3.3 GREEN: `PatientEndpoints.cs` — add `.RequireAuthorization(PolicyNames.AdministratorOrAbove)`
+  to the 5 deactivate routes. `dotnet test` green; confirmed 3.2 passed untouched (proves Decision 4).
+- [x] 3.4 Full regression: ran entire `dotnet test` suite — **256/256 passing** (`PatientFlowTests`,
+  `ConsultationFlowTests`, `AttentionSessionTests`, `ReportTests`, and all others stay green;
+  Owner/Doctor satisfy every tier as expected).
+
+## Delivery note
+
+Per explicit time-constrained user instruction, Phases 1–3 above were implemented in a single
+session as 3 sequential commits (one per phase, TDD RED→GREEN within each) instead of 3 separate
+chained PRs as originally forecast in the Review Workload table. TDD ordering (test-before-code)
+was preserved within each phase; only the PR-chaining/pause-between-phases part of the plan was
+skipped, by explicit instruction.

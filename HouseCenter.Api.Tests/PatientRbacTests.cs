@@ -99,6 +99,71 @@ public sealed class PatientRbacTests(ApiFactory factory)
             await RunWriteFlowAsync(client);
     }
 
+    // ─── Deactivate tier: AdministratorOrAbove (Phase 3) ───────────────────────
+
+    [Fact]
+    public async Task DeactivateRoutes_AsMember_Returns403()
+    {
+        var (member, _) = await LoginUserWithRoleAsync(RoleNames.Member);
+        var graph = await RunWriteFlowAsync(member); // Member can create its own graph (Phase 2)
+
+        foreach (var (method, path) in DeactivateRoutes(graph))
+        {
+            var response = await member.SendAsync(new HttpRequestMessage(method, path));
+            response.StatusCode.Should().Be(HttpStatusCode.Forbidden, $"{method} {path} must block Member");
+        }
+    }
+
+    [Fact]
+    public async Task DeactivateRoutes_AsAdministratorOrOwner_Returns204()
+    {
+        var owner = await OwnerClient();
+        var (admin, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+
+        foreach (var client in new[] { admin, owner })
+        {
+            var graph = await RunWriteFlowAsync(client);
+            foreach (var (method, path) in DeactivateRoutes(graph))
+            {
+                var response = await client.SendAsync(new HttpRequestMessage(method, path));
+                response.StatusCode.Should().Be(HttpStatusCode.NoContent, $"{method} {path} must allow this role");
+            }
+        }
+    }
+
+    // ─── Doctor assignment: OwnerOnly, unchanged (spec Decision 4 regression) ──
+
+    [Fact]
+    public async Task DoctorAssignmentRoutes_AsOwner_Succeed()
+    {
+        var owner = await OwnerClient();
+        var graph = await RunWriteFlowAsync(owner);
+        var doctorId = await SeedUserAsync(RoleNames.Doctor);
+
+        var assign = await owner.PostAsync($"/patients/{graph.PatientId}/doctors/{doctorId}", null);
+        assign.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var remove = await owner.DeleteAsync($"/patients/{graph.PatientId}/doctors/{doctorId}");
+        remove.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task DoctorAssignmentRoutes_AsAdministrator_Returns403()
+    {
+        var owner = await OwnerClient();
+        var graph = await RunWriteFlowAsync(owner);
+        var doctorId = await SeedUserAsync(RoleNames.Doctor);
+        await owner.PostAsync($"/patients/{graph.PatientId}/doctors/{doctorId}", null); // pre-assign as owner
+
+        var (admin, _) = await LoginUserWithRoleAsync(RoleNames.Administrator);
+
+        var assign = await admin.PostAsync($"/patients/{graph.PatientId}/doctors/{Guid.NewGuid()}", null);
+        assign.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        var remove = await admin.DeleteAsync($"/patients/{graph.PatientId}/doctors/{doctorId}");
+        remove.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
     // ─── Route inventories ──────────────────────────────────────────────────────
 
     private static IEnumerable<(HttpMethod Method, string Path)> ReadRoutes(PatientGraph g) =>
@@ -137,6 +202,19 @@ public sealed class PatientRbacTests(ApiFactory factory)
             new CreatePatientCommentRequest("Bloqueado", CommentType.Simple)),
         (HttpMethod.Put, $"/patients/{g.PatientId}/comments/{g.PatientCommentId}",
             new UpdatePatientCommentRequest("Bloqueado", CommentType.Simple, CommentStatus.Accepted))
+    ];
+
+    /// <summary>The 5 deactivate (soft-delete) routes. Each entity's IsActive flag is independent
+    /// (HouseCenterDbContext's global query filter is per-entity, not cascaded from Patient), so
+    /// order across these 5 doesn't matter — deactivating the patient first doesn't hide its
+    /// still-active child records from their own by-id lookups.</summary>
+    private static IEnumerable<(HttpMethod Method, string Path)> DeactivateRoutes(PatientGraph g) =>
+    [
+        (HttpMethod.Delete, $"/patients/{g.PatientId}"),
+        (HttpMethod.Delete, $"/patients/{g.PatientId}/treatments/{g.TreatmentId}"),
+        (HttpMethod.Delete, $"/treatments/{g.TreatmentId}/details/{g.DetailId}"),
+        (HttpMethod.Delete, $"/treatments/{g.TreatmentId}/comments/{g.TreatmentCommentId}"),
+        (HttpMethod.Delete, $"/patients/{g.PatientId}/comments/{g.PatientCommentId}")
     ];
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
