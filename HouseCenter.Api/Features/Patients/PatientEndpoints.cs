@@ -21,7 +21,8 @@ public static class PatientEndpoints
     // ─── 4.1 + 4.2 Patients ──────────────────────────────────────────────────
     private static void MapPatients(IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/patients").WithTags("Patients").RequireAuthorization();
+        var group = app.MapGroup("/patients").WithTags("Patients")
+            .RequireAuthorization(PolicyNames.StaffOnly);
 
         group.MapGet("/", async ([AsParameters] PageQuery paging, IPatientService service, CancellationToken ct) =>
                 (await service.ListAsync(paging, ct)).ToHttpResult())
@@ -79,7 +80,7 @@ public static class PatientEndpoints
     private static void MapTreatments(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/patients/{patientId:guid}/treatments")
-            .WithTags("Treatments").RequireAuthorization();
+            .WithTags("Treatments").RequireAuthorization(PolicyNames.StaffOnly);
 
         group.MapGet("/", async (Guid patientId, [AsParameters] PageQuery paging, IPatientService service, CancellationToken ct) =>
                 (await service.ListTreatmentsAsync(patientId, paging, ct)).ToHttpResult())
@@ -114,7 +115,7 @@ public static class PatientEndpoints
     private static void MapTreatmentDetails(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/treatments/{treatmentId:guid}/details")
-            .WithTags("TreatmentDetails").RequireAuthorization();
+            .WithTags("TreatmentDetails").RequireAuthorization(PolicyNames.StaffOnly);
 
         group.MapGet("/", async (Guid treatmentId, [AsParameters] PageQuery paging, IPatientService service, CancellationToken ct) =>
                 (await service.ListTreatmentDetailsAsync(treatmentId, paging, ct)).ToHttpResult())
@@ -144,7 +145,7 @@ public static class PatientEndpoints
     private static void MapTreatmentComments(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/treatments/{treatmentId:guid}/comments")
-            .WithTags("TreatmentComments").RequireAuthorization();
+            .WithTags("TreatmentComments").RequireAuthorization(PolicyNames.StaffOnly);
 
         group.MapGet("/", async (Guid treatmentId, [AsParameters] PageQuery paging, IPatientService service, CancellationToken ct) =>
                 (await service.ListTreatmentCommentsAsync(treatmentId, paging, ct)).ToHttpResult())
@@ -175,7 +176,7 @@ public static class PatientEndpoints
     private static void MapPatientComments(IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/patients/{patientId:guid}/comments")
-            .WithTags("PatientComments").RequireAuthorization();
+            .WithTags("PatientComments").RequireAuthorization(PolicyNames.StaffOnly);
 
         group.MapPost("/", async (Guid patientId, CreatePatientCommentRequest request,
                 IPatientService service, ClaimsPrincipal principal, CancellationToken ct) =>
