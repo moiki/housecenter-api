@@ -28,6 +28,11 @@
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
           <PrivateAssets>all</PrivateAssets>
         </PackageReference>
+        <!-- Direct pin: Microsoft.AspNetCore.OpenApi 10.0.x transitively floors Microsoft.OpenApi
+             at 2.0.0, which carries a high-severity ReDoS/stack-overflow advisory
+             (GHSA-v5pm-xwqc-g5wc) fixed in 2.7.5+. Pin explicitly until Microsoft bumps their own
+             floor. -->
+        <PackageReference Include="Microsoft.OpenApi" Version="2.11.0" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
         <PackageReference Include="Scalar.AspNetCore" Version="2.16.3" />
         <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
